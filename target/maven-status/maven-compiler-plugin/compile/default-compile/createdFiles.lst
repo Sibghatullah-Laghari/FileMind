@@ -1,0 +1,17 @@
+com/recall/core/LuceneIndexer.class
+com/recall/ui/SearchUI$3.class
+com/recall/ui/SearchUI$ResultRenderer.class
+com/recall/ui/SearchUI$ResultItem.class
+com/recall/ui/SearchUI$2.class
+com/recall/ui/SearchUI$4.class
+com/recall/core/ActivityHistory.class
+com/recall/core/FileWatcher.class
+com/recall/ui/SearchUI$1.class
+com/recall/core/FileWatcher$EventType.class
+com/recall/Main.class
+com/recall/Main$1.class
+com/recall/core/NLQueryParser$ParsedQuery.class
+com/recall/ui/SearchUI.class
+com/recall/core/NameSuggester.class
+com/recall/core/MetadataDB.class
+com/recall/core/NLQueryParser.class
