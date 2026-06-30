@@ -1,0 +1,145 @@
+# ==========================================
+# 1. Environment & Sensitive Data (CRITICAL)
+# ==========================================
+# Never commit credentials, tokens, or local configurations
+.env
+.env.local
+.env.*.local
+*.env
+*.pem
+*.key
+*.pub
+*.p12
+*.jks
+*.keystore
+secrets.properties
+
+# ==========================================
+# 2. Java & Spring Boot
+# ==========================================
+# Compiled class files
+*.class
+
+# Log files
+*.log
+logs/
+**/logs/
+
+# Blueprints and packaging
+*.jar
+*.war
+*.nar
+*.ear
+*.rar
+
+# Crash dumps
+hs_err_pid*
+replay_pid*
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.next
+pom.xml.note
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/.maven-wrapper.jar
+
+# Gradle
+.gradle/
+build/
+/captures/
+.gnu-config/
+.build-id/
+gradle-wrapper.jar
+
+# ==========================================
+# 3. NodeJS & Frontend (React / Astro / etc.)
+# ==========================================
+node_modules/
+/dist
+/build
+/out
+.astro/
+.next/
+.nuxt/
+.pnpm-debug.log*
+yarn-error.log*
+.package-lock.json
+
+# ==========================================
+# 4. IDEs & Editors
+# ==========================================
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Eclipse
+.metadata/
+bin/
+tmp/
+.tmp/
+.classpath
+.project
+.settings/
+*.launch
+
+# VS Code
+.vscode/
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# Sublimetext / Vim
+*.sublime-project
+*.sublime-workspace
+.*.swp
+.*.swo
+
+# ==========================================
+# 5. Operating System Files
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.Trashes
+VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Linux
+~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs.db:storage
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ==========================================
+# 6. Database & Containers
+# ==========================================
+.data/
+data/
+sqlite.db
+*.db
+*.sqlite
+.docker/
+.database/
