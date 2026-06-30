@@ -3,6 +3,7 @@
 /home/sibghatullah/IdeaProjects/FileMind/src/main/java/com/recall/Main.java
 /home/sibghatullah/IdeaProjects/FileMind/src/main/java/com/recall/core/ActivityHistory.java
 /home/sibghatullah/IdeaProjects/FileMind/src/main/java/com/recall/core/NameSuggester.java
+/home/sibghatullah/IdeaProjects/FileMind/src/main/java/com/recall/core/SearchResult.java
 /home/sibghatullah/IdeaProjects/FileMind/src/main/java/com/recall/ui/SearchUI.java
 /home/sibghatullah/IdeaProjects/FileMind/src/main/java/com/recall/core/LuceneIndexer.java
 /home/sibghatullah/IdeaProjects/FileMind/src/main/java/com/recall/core/MetadataDB.java

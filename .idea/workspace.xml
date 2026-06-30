@@ -4,8 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f95715da-3c4d-4855-bbad-0c6bd47b3743" name="Changes" comment="files are created and basic project is created">
+    <list default="true" id="f95715da-3c4d-4855-bbad-0c6bd47b3743" name="Changes" comment="file changes">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/Main.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/core/ActivityHistory.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/core/ActivityHistory.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/core/FileWatcher.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/core/FileWatcher.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/core/LuceneIndexer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/core/LuceneIndexer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/core/MetadataDB.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/core/MetadataDB.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/core/NLQueryParser.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/core/NLQueryParser.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/core/NameSuggester.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/core/NameSuggester.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/recall/ui/SearchUI.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/recall/ui/SearchUI.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -26,7 +35,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="main" />
+        <entry key="$PROJECT_DIR$" value="develop2" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -56,21 +65,21 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Libraries&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "develop1",
+    "junie.onboarding.icon.badge.shown": "true",
+    "project.structure.last.edited": "Libraries",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.2",
+    "to.speed.mode.migration.done": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CreateClassDialog.RecentsKey">
       <recent name="com.recall" />
@@ -88,7 +97,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="files are created and basic project is created" />
-    <option name="LAST_COMMIT_MESSAGE" value="files are created and basic project is created" />
+    <MESSAGE value="file changes" />
+    <option name="LAST_COMMIT_MESSAGE" value="file changes" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
