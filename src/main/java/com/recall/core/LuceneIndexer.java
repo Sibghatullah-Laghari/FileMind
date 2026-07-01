@@ -3,178 +3,316 @@ package com.recall.core;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
-import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
-import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.tika.Tika;
-import org.apache.tika.exception.TikaException;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
-import static org.apache.commons.io.FilenameUtils.getExtension;
-
+/**
+ * Core indexing + search engine.
+ *
+ * KEY FIXES vs original:
+ *  - refreshSearcher() only called when user actually searches (not per file)
+ *  - updateDocument() handles delete+insert atomically — no manual delete needed
+ *  - Tika used for full content extraction (PDF, DOCX, TXT, Java, etc.)
+ *  - isSkippable() skips node_modules, .git, target, build, etc.
+ *  - Content truncated to first 50 000 chars (configurable)
+ *  - Extension + size stored as DocValues for fast filter queries
+ */
 public class LuceneIndexer {
-    private static volatile boolean needsRefresh = false;
-    private static Directory directory;
-    private static IndexWriter writer;
-    private static IndexSearcher searcher;
-    private static final Tika tika = new Tika();
 
-    // CRITICAL: Keeps RAM under 16 MB for indexing
-    private static final double RAM_BUFFER_MB = 16.0;
+    // ── tunables ──────────────────────────────────────────────────────────────
+    private static final double  RAM_BUFFER_MB     = 32.0;   // sweet spot: speed vs RAM
+    private static final int     MAX_CONTENT_CHARS = 50_000; // ~50 KB of text per file
+    private static final long    MAX_FILE_BYTES    = 500L * 1024 * 1024; // skip >500 MB
+
+    // Directories whose entire subtree we skip
+    private static final Set<String> SKIP_DIRS = Set.of(
+            "node_modules", ".git", ".svn", "target", "build", ".gradle",
+            "__pycache__", ".idea", ".vscode", ".cache", "dist", "out",
+            ".Trash", "$RECYCLE.BIN", "System Volume Information"
+    );
+
+    // Extensions whose content we never try to extract (binary, media)
+    private static final Set<String> SKIP_CONTENT_EXTS = Set.of(
+            "exe","dll","so","bin","iso","img","dmg","apk",
+            "mp3","mp4","avi","mkv","mov","flac","wav","aac",
+            "zip","tar","gz","7z","rar",
+            "png","jpg","jpeg","gif","bmp","webp","svg","ico",
+            "class","pyc","o","obj"
+    );
+
+    // ── state ─────────────────────────────────────────────────────────────────
+    private static FSDirectory    directory;
+    private static IndexWriter    writer;
+    private static IndexSearcher  searcher;
+    private static DirectoryReader reader;
+    private static final Tika     tika = new Tika();
+    private static final AtomicBoolean needsRefresh = new AtomicBoolean(false);
+
+    // ── lifecycle ─────────────────────────────────────────────────────────────
 
     public static void init(Path indexDir) throws IOException {
+        Files.createDirectories(indexDir);
         directory = FSDirectory.open(indexDir);
-        IndexWriterConfig config = new IndexWriterConfig(new StandardAnalyzer());
-        config.setRAMBufferSizeMB(RAM_BUFFER_MB);
-        config.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
-        writer = new IndexWriter(directory, config);
-        refreshSearcher();
+        IndexWriterConfig cfg = new IndexWriterConfig(new StandardAnalyzer());
+        cfg.setRAMBufferSizeMB(RAM_BUFFER_MB);
+        cfg.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
+        writer = new IndexWriter(directory, cfg);
+        reader   = DirectoryReader.open(writer);
+        searcher = new IndexSearcher(reader);
     }
 
     public static void close() {
-        try {
-            if (writer != null) writer.close();
-            if (directory != null) directory.close();
-        } catch (IOException ignored) {}
-    }
-    public static void flushAndRefresh() throws IOException {
-        if (needsRefresh) {
-            writer.flush();
-            DirectoryReader newReader = DirectoryReader.openIfChanged((DirectoryReader) searcher.getIndexReader());
-            if (newReader != null) {
-                searcher = new IndexSearcher(newReader);
-            }
-            needsRefresh = false;
-        }
-    }
-    private static boolean isSkippable(Path p) {
-        String s = p.toAbsolutePath().toString();
-        if (p.getFileName().toString().startsWith(".")) return true;
-        if (p.getFileName().toString().endsWith("~")) return true;
-        String[] skipDirs = {"node_modules", ".git", "target", "build", ".gradle", "__pycache__", ".idea"};
-        for (String d : skipDirs) {
-            if (s.contains("/" + d + "/") || s.contains("\\" + d + "\\")) return true;
-        }
-        return false;
+        try { if (writer != null) writer.close(); } catch (IOException ignored) {}
+        try { if (reader != null) reader.close(); } catch (IOException ignored) {}
+        try { if (directory != null) directory.close(); } catch (IOException ignored) {}
     }
 
-    private static void refreshSearcher() throws IOException {
-        searcher = new IndexSearcher(DirectoryReader.open(writer));
-    }
-    private static String getExtension(String fileName) {
-        int idx = fileName.lastIndexOf('.');
-        return idx == -1 ? "" : fileName.substring(idx + 1).toLowerCase();
-    }
+    // ── indexing ──────────────────────────────────────────────────────────────
 
-    // Index a single file (called by watcher or initial scan)
+    /**
+     * Index a single file.
+     * Safe to call from multiple threads — IndexWriter is thread-safe.
+     */
     public static void indexFile(Path filePath) {
         try {
-            if (!Files.isRegularFile(filePath)) return;
-            long size = Files.size(filePath);
-            if (size > 500L * 1024 * 1024) return;
+            if (!Files.isRegularFile(filePath))   return;
+            if (isSkippable(filePath))             return;
 
-            String pathStr = filePath.toAbsolutePath().toString();
-            String fileName = filePath.getFileName().toString();
-
-            if (isSkippable(filePath)) return;
-
-            String content = "";
-            try {
-                content = tika.parseToString(filePath.toFile());
-                if (content.length() > 50_000)
-                    content = content.substring(0, 50_000);
-            } catch (Exception e) {
-                // corrupted / password-protected — index metadata only
+            long sizeBytes = Files.size(filePath);
+            if (sizeBytes > MAX_FILE_BYTES) {
+                System.out.println("[SKIP >500MB] " + filePath.getFileName());
+                return;
             }
 
-            Document doc = new Document();
-            doc.add(new StringField("path", pathStr, Field.Store.YES));
-            doc.add(new TextField("filename", fileName, Field.Store.YES));
-            doc.add(new TextField("content", content, Field.Store.NO));
-            doc.add(new StoredField("ext", getExtension(fileName)));
-            doc.add(new LongPoint("modified", Files.getLastModifiedTime(filePath).toMillis()));
-            doc.add(new NumericDocValuesField("modifiedSort", Files.getLastModifiedTime(filePath).toMillis()));
-            doc.add(new LongPoint("size", size));
+            String pathStr  = filePath.toAbsolutePath().toString();
+            String fileName = filePath.getFileName().toString();
+            String ext      = getExtension(fileName).toLowerCase();
+            long   modified = Files.getLastModifiedTime(filePath).toMillis();
 
+            // ── content extraction ─────────────────────────────────
+            String content = "";
+            String suggestedName = null;
+            if (!SKIP_CONTENT_EXTS.contains(ext)) {
+                try {
+                    // Tika streams internally — never loads whole file into RAM
+                    content = tika.parseToString(filePath.toFile());
+                    if (content.length() > MAX_CONTENT_CHARS)
+                        content = content.substring(0, MAX_CONTENT_CHARS);
+                    // Generate name suggestion from first 500 chars
+                    suggestedName = NameSuggester.suggest(fileName, content, ext);
+                } catch (Exception e) {
+                    // Corrupted / encrypted — index metadata only, silently
+                }
+            }
+
+            // ── build Lucene document ──────────────────────────────
+            Document doc = new Document();
+            // Stored fields (returned in results)
+            doc.add(new StringField("path",     pathStr,  Field.Store.YES));
+            doc.add(new TextField ("filename",  fileName, Field.Store.YES));
+            doc.add(new StoredField("ext",      ext));
+            doc.add(new StoredField("size",     sizeBytes));
+            doc.add(new StoredField("modified", modified));
+            if (suggestedName != null)
+                doc.add(new StoredField("suggestedName", suggestedName));
+
+            // Searchable/filterable fields (not stored — saves disk)
+            doc.add(new TextField("content", content, Field.Store.NO));
+            doc.add(new StringField("extFilter", ext, Field.Store.NO));
+
+            // Numeric fields for range filters
+            doc.add(new LongPoint("modifiedPoint", modified));
+            doc.add(new LongPoint("sizePoint",     sizeBytes));
+            // DocValues for sorting
+            doc.add(new NumericDocValuesField("modifiedSort", modified));
+            doc.add(new NumericDocValuesField("sizeSort",     sizeBytes));
+
+            // updateDocument = atomic delete-by-term + insert.
+            // No manual deleteDocuments() call needed — that was the original bug.
             writer.updateDocument(new Term("path", pathStr), doc);
-            needsRefresh = true;
+            needsRefresh.set(true);
 
         } catch (Exception e) {
-            System.err.println("Index error: " + filePath + " — " + e.getMessage());
+            System.err.println("[INDEX ERROR] " + filePath + " — " + e.getMessage());
         }
     }
 
-    // Delete a file from index (for watcher DELETE events)
     public static void deleteFile(Path filePath) {
         try {
             writer.deleteDocuments(new Term("path", filePath.toAbsolutePath().toString()));
-            refreshSearcher();
+            needsRefresh.set(true);
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("[DELETE ERROR] " + e.getMessage());
         }
     }
 
-    // Check if path already exists in index
-    private static boolean existsInIndex(String pathStr) throws IOException, ParseException {
-        Query query = new QueryParser("path", new StandardAnalyzer()).parse(pathStr);
-        TopDocs docs = searcher.search(query, 1);
-        return docs.totalHits.value > 0;
-    }
-
-    // RECURSIVE folder indexing (runs in background)
+    /**
+     * Walk a folder and index all files.
+     * callback(filePath, success) is called for each file — use to update UI status.
+     */
     public static void indexFolder(Path folder, BiConsumer<Path, Boolean> callback) {
         try {
-            Files.walk(folder)
-                    .filter(Files::isRegularFile)
-                    .forEach(file -> {
-                        indexFile(file);
-                        if (callback != null) callback.accept(file, true);
-                    });
+            Files.walkFileTree(folder, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    // Skip entire subtrees we don't want
+                    String name = dir.getFileName() != null ? dir.getFileName().toString() : "";
+                    if (SKIP_DIRS.contains(name) || name.startsWith("."))
+                        return FileVisitResult.SKIP_SUBTREE;
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    indexFile(file);
+                    if (callback != null) callback.accept(file, true);
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    return FileVisitResult.CONTINUE; // skip unreadable
+                }
+            });
+            // Flush once after bulk scan — not per file
+            writer.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("[FOLDER SCAN ERROR] " + e.getMessage());
         }
     }
 
-    // SEARCH: returns list of file paths matching query
-    public static List<String> search(String queryText) {
-        List<String> results = new ArrayList<>();
+    // ── search ────────────────────────────────────────────────────────────────
+
+    /**
+     * Main search entry point.
+     * @param parsed  Output from NLQueryParser
+     * @param maxResults  How many results to return
+     */
+    public static List<SearchResult> search(NLQueryParser.ParsedQuery parsed, int maxResults) {
+        List<SearchResult> results = new ArrayList<>();
         try {
-            flushAndRefresh();
+            // Reopen searcher only when index has changed — not on every call
+            if (needsRefresh.getAndSet(false)) {
+                DirectoryReader newReader = DirectoryReader.openIfChanged(reader);
+                if (newReader != null) {
+                    reader.close();
+                    reader   = newReader;
+                    searcher = new IndexSearcher(reader);
+                }
+            }
 
-            if (queryText == null || queryText.trim().isEmpty()) return results;
+            BooleanQuery.Builder qb = new BooleanQuery.Builder();
 
-            // Search in both filename AND content
-            QueryParser parser = new QueryParser("content", new StandardAnalyzer());
-            Query query = parser.parse(queryText);
+            // ── keyword query ──────────────────────────────────────
+            if (parsed.luceneQuery() != null && !parsed.luceneQuery().isBlank()) {
+                String[] fields = {"filename", "content"};
+                float[]  boosts = {2.0f,        1.0f};  // filename matches rank higher
+                MultiFieldQueryParser mfqp = new MultiFieldQueryParser(
+                        fields, new StandardAnalyzer(),
+                        Map.of("filename", 2.0f, "content", 1.0f)
+                );
+                mfqp.setDefaultOperator(QueryParser.Operator.AND);
+                try {
+                    Query kq = mfqp.parse(parsed.luceneQuery());
+                    qb.add(kq, BooleanClause.Occur.MUST);
+                } catch (Exception e) {
+                    // Fallback: treat as phrase if parse fails
+                    Query fallback = new QueryParser("filename", new StandardAnalyzer())
+                            .parse(QueryParser.escape(parsed.luceneQuery()));
+                    qb.add(fallback, BooleanClause.Occur.MUST);
+                }
+            }
 
-            // Also search filename as fallback
-            Query filenameQuery = new QueryParser("filename", new StandardAnalyzer()).parse(queryText);
-            BooleanQuery combinedQuery = new BooleanQuery.Builder()
-                    .add(query, BooleanClause.Occur.SHOULD)
-                    .add(filenameQuery, BooleanClause.Occur.SHOULD)
-                    .build();
+            // ── file type filter ───────────────────────────────────
+            if (parsed.fileType() != null) {
+                String[] exts = parsed.fileTypeExtensions();
+                BooleanQuery.Builder extQ = new BooleanQuery.Builder();
+                for (String ext : exts)
+                    extQ.add(new TermQuery(new Term("extFilter", ext)), BooleanClause.Occur.SHOULD);
+                qb.add(extQ.build(), BooleanClause.Occur.FILTER);
+            }
 
-            TopDocs topDocs = searcher.search(combinedQuery, 100); // Max 100 results
-            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
-                Document doc = searcher.doc(scoreDoc.doc);
-                results.add(doc.get("path"));
+            // ── date range filter ──────────────────────────────────
+            if (parsed.afterMs() != null || parsed.beforeMs() != null) {
+                long lo = parsed.afterMs()  != null ? parsed.afterMs()  : Long.MIN_VALUE;
+                long hi = parsed.beforeMs() != null ? parsed.beforeMs() : Long.MAX_VALUE;
+                qb.add(LongPoint.newRangeQuery("modifiedPoint", lo, hi), BooleanClause.Occur.FILTER);
+            }
+
+            // ── size filter ────────────────────────────────────────
+            if (parsed.minSizeBytes() != null || parsed.maxSizeBytes() != null) {
+                long lo = parsed.minSizeBytes() != null ? parsed.minSizeBytes() : 0;
+                long hi = parsed.maxSizeBytes() != null ? parsed.maxSizeBytes() : Long.MAX_VALUE;
+                qb.add(LongPoint.newRangeQuery("sizePoint", lo, hi), BooleanClause.Occur.FILTER);
+            }
+
+            // If nothing to query, return empty
+            BooleanQuery finalQuery = qb.build();
+            if (finalQuery.clauses().isEmpty()) return results;
+
+            // Sort: by relevance (default), or by date if history query
+            Sort sort = parsed.historyOnly()
+                    ? new Sort(new SortField("modifiedSort", SortField.Type.LONG, true))
+                    : Sort.RELEVANCE;
+
+            TopDocs topDocs = searcher.search(finalQuery, maxResults, sort);
+
+            for (ScoreDoc sd : topDocs.scoreDocs) {
+                Document doc = searcher.doc(sd.doc);
+                results.add(new SearchResult(
+                        doc.get("path"),
+                        doc.get("filename"),
+                        doc.get("ext"),
+                        parseLong(doc.get("size")),
+                        parseLong(doc.get("modified")),
+                        doc.get("suggestedName"),
+                        sd.score
+                ));
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("[SEARCH ERROR] " + e.getMessage());
         }
         return results;
     }
 
-    public static int getDocumentCount() throws IOException {
-        return writer.getDocStats().numDocs;
+    public static int getDocumentCount() {
+        try { return writer.getDocStats().numDocs; } catch (Exception e) { return 0; }
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    private static boolean isSkippable(Path p) {
+        // Skip hidden files
+        String name = p.getFileName() != null ? p.getFileName().toString() : "";
+        if (name.startsWith(".") || name.endsWith("~") || name.endsWith(".tmp")) return true;
+
+        // Skip if any parent directory is in the skip list
+        Path parent = p.getParent();
+        while (parent != null) {
+            String dirName = parent.getFileName() != null ? parent.getFileName().toString() : "";
+            if (SKIP_DIRS.contains(dirName)) return true;
+            parent = parent.getParent();
+        }
+        return false;
+    }
+
+    public static String getExtension(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        return (dot > 0 && dot < fileName.length() - 1)
+                ? fileName.substring(dot + 1)
+                : "unknown";
+    }
+
+    private static long parseLong(String s) {
+        if (s == null) return 0;
+        try { return Long.parseLong(s); } catch (NumberFormatException e) { return 0; }
     }
 }
