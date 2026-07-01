@@ -1,7 +1,9 @@
 package com.recall;
 
 import com.recall.core.*;
-import com.recall.ui.SearchUI;
+import com.recall.ui.SearchPanel;
+import com.recall.ui.FloatingIcon;
+import com.recall.ui.HotkeyManager;
 
 import javax.swing.*;
 import java.awt.*;
@@ -19,6 +21,7 @@ import java.util.concurrent.*;
  *  - Clean shutdown hook (flushes index on exit)
  *  - JVM heap limited to 128 MB via launch script (add -Xmx128m to your run config)
  */
+
 public class Main {
 
     // ── config (change these to match your environment) ───────────────────────
@@ -40,7 +43,9 @@ public class Main {
             new ThreadPoolExecutor.DiscardOldestPolicy()
     );
 
-    private static SearchUI ui;
+    private static SearchPanel searchPanel;
+    private static FloatingIcon floatingIcon;
+    private static HotkeyManager hotkeyManager;
 
     // ─────────────────────────────────────────────────────────────────────────
     public static void main(String[] args) throws Exception {
@@ -53,10 +58,16 @@ public class Main {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception ignored) {}
 
-            ui = new SearchUI();
-            ui.setVisible(true);
+            // Initialize search panel (not shown on startup)
+            searchPanel = SearchPanel.getInstance();
 
             setupTrayIcon();
+
+            // Show floating icon
+            floatingIcon = FloatingIcon.createAndShow();
+
+            // Initialize global hotkey
+            hotkeyManager = HotkeyManager.init();
         });
 
         // Register clean shutdown
@@ -81,7 +92,7 @@ public class Main {
                     Path p = Paths.get(folder);
                     if (!Files.exists(p)) continue;
 
-                    ui.setStatus("Indexing " + p.getFileName() + "...");
+                    System.out.println("[INDEX] Indexing " + p.getFileName() + "...");
 
                     // Submit each file as a separate task — parallel, bounded
                     LuceneIndexer.indexFolder(p, (filePath, ok) -> {
@@ -89,11 +100,10 @@ public class Main {
                         // Update status every ~200 files without flooding the EDT
                     });
 
-                    ui.setStatus("Indexed " + p.getFileName() + " ✓");
+                    System.out.println("[INDEX] Indexed " + p.getFileName() + " ✓");
                 }
 
-                ui.setStatus("Ready");
-                ui.setIndexCount(LuceneIndexer.getDocumentCount());
+                System.out.println("[INDEX] Ready. Total documents: " + LuceneIndexer.getDocumentCount());
 
                 // 3. Start file watchers
                 for (String folder : WATCH_FOLDERS) {
@@ -119,16 +129,16 @@ public class Main {
                                         MetadataDB.delete(path.toString());
                                     }
                                 }
-                                ui.setIndexCount(LuceneIndexer.getDocumentCount());
+                                // Index count is logged but not displayed in UI
                             } catch (IOException e) {
-                                ui.setStatus("Watch error: " + e.getMessage());
+                                System.err.println("[WATCH] Error: " + e.getMessage());
                             }
                         });
                     });
                 }
 
             } catch (Exception e) {
-                ui.setStatus("Startup error: " + e.getMessage());
+                System.err.println("[STARTUP] Error: " + e.getMessage());
                 e.printStackTrace();
             }
         }, "filemind-startup");
@@ -173,30 +183,13 @@ public class Main {
             System.err.println("[TRAY] Could not add tray icon: " + e.getMessage());
         }
 
-        // Global shortcut simulation:
-        // On Linux/Windows, true global hotkeys need a native library (JNativeHook).
-        // For now, Ctrl+Space works when the app is focused.
-        // To add JNativeHook later: https://github.com/kwhat/jnativehook
-        // Add to pom.xml: com.github.kwhat:jnativehook:2.2.2
-        KeyboardFocusManager.getCurrentKeyboardFocusManager()
-                .addKeyEventDispatcher(e -> {
-                    if (e.getID() == KeyEvent.KEY_PRESSED
-                            && e.getKeyCode() == KeyEvent.VK_SPACE
-                            && e.isControlDown()) {
-                        showUI();
-                        return true;
-                    }
-                    return false;
-                });
+        // Note: Global hotkey (Ctrl+Shift+F) is now handled by HotkeyManager using JNativeHook
+        // See HotkeyManager.java for configuration details
     }
 
     private static void showUI() {
         SwingUtilities.invokeLater(() -> {
-            if (ui != null) {
-                ui.setVisible(true);
-                ui.toFront();
-                ui.requestFocus();
-            }
+            SearchPanel.getInstance().opens
         });
     }
 
@@ -218,8 +211,16 @@ public class Main {
         return img;
     }
 
-    // ── shutdown ──────────────────────────────────────────────────────────────
+    // ── shutdown ──────────────────────────────────────────────────────────
     public static void shutdown() {
+        System.out.println("[SHUTDOWN] Cleaning up...");
+
+        // Unregister global hotkey
+        if (hotkeyManager != null) {
+            hotkeyManager.unregister();
+        }
+
+        // Flush index and close database
         System.out.println("[SHUTDOWN] Flushing index and closing...");
         indexExecutor.shutdown();
         try {

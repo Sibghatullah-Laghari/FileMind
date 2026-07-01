@@ -330,7 +330,7 @@ public class SearchUI extends JFrame {
                                     long mod  = Files.exists(path) ? Files.getLastModifiedTime(path).toMillis() : 0;
                                     String ext = LuceneIndexer.getExtension(path.getFileName().toString());
                                     return new SearchResult(p, path.getFileName().toString(),
-                                            ext, size, mod, null, 1.0f);
+                                            ext, size, mod, null, null, 1.0f);
                                 } catch (IOException e) {
                                     return null;
                                 }
@@ -377,7 +377,7 @@ public class SearchUI extends JFrame {
                                 String ext = LuceneIndexer.getExtension(fn);
                                 long size  = Files.size(p);
                                 long mod   = Files.getLastModifiedTime(p).toMillis();
-                                SearchResult r = new SearchResult(path, fn, ext, size, mod, null, 0);
+                                SearchResult r = new SearchResult(path, fn, ext, size, mod, null, null, 0);
                                 resultsPanel.add(makeResultCard(r));
                                 resultsPanel.add(Box.createVerticalStrut(4));
                             } catch (IOException ignored) {}

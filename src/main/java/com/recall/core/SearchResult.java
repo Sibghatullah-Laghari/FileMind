@@ -19,6 +19,7 @@ public record SearchResult(
         long   sizeBytes,
         long   modifiedMs,
         String suggestedName,   // null if name is already descriptive
+        String snippet,         // first 300 chars of content, for preview
         float  score
 ) {
     private static final DateTimeFormatter DATE_FMT =

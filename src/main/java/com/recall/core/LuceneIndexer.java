@@ -101,15 +101,22 @@ public class LuceneIndexer {
 
             // ── content extraction ─────────────────────────────────
             String content = "";
+            String symbols = "";
             String suggestedName = null;
             if (!SKIP_CONTENT_EXTS.contains(ext)) {
                 try {
-                    // Tika streams internally — never loads whole file into RAM
-                    content = tika.parseToString(filePath.toFile());
-                    if (content.length() > MAX_CONTENT_CHARS)
-                        content = content.substring(0, MAX_CONTENT_CHARS);
-                    // Generate name suggestion from first 500 chars
-                    suggestedName = NameSuggester.suggest(fileName, content, ext);
+                    content = ContentExtractor.extract(pathStr);
+                    if (content != null && !content.isEmpty()) {
+                        if (content.length() > MAX_CONTENT_CHARS) {
+                            content = content.substring(0, MAX_CONTENT_CHARS);
+                        }
+                        // Extract symbols from source code
+                        if (ext.matches("java|py|js|ts|cpp|c|h|go|rs|kt|swift")) {
+                            symbols = extractSymbols(content, ext);
+                        }
+                        // Generate name suggestion from first 500 chars
+                        suggestedName = NameSuggester.suggest(fileName, content.substring(0, Math.min(500, content.length())), ext);
+                    }
                 } catch (Exception e) {
                     // Corrupted / encrypted — index metadata only, silently
                 }
@@ -123,11 +130,17 @@ public class LuceneIndexer {
             doc.add(new StoredField("ext",      ext));
             doc.add(new StoredField("size",     sizeBytes));
             doc.add(new StoredField("modified", modified));
+            // Store snippet (first 300 chars for display)
+            String snippet = content.length() > 300 ? content.substring(0, 300) : content;
+            doc.add(new StoredField("snippet",  snippet));
             if (suggestedName != null)
                 doc.add(new StoredField("suggestedName", suggestedName));
 
             // Searchable/filterable fields (not stored — saves disk)
             doc.add(new TextField("content", content, Field.Store.NO));
+            if (!symbols.isEmpty()) {
+                doc.add(new TextField("symbols", symbols, Field.Store.NO));
+            }
             doc.add(new StringField("extFilter", ext, Field.Store.NO));
 
             // Numeric fields for range filters
@@ -213,11 +226,10 @@ public class LuceneIndexer {
 
             // ── keyword query ──────────────────────────────────────
             if (parsed.luceneQuery() != null && !parsed.luceneQuery().isBlank()) {
-                String[] fields = {"filename", "content"};
-                float[]  boosts = {2.0f,        1.0f};  // filename matches rank higher
+                String[] fields = {"filename", "symbols", "content"};
                 MultiFieldQueryParser mfqp = new MultiFieldQueryParser(
                         fields, new StandardAnalyzer(),
-                        Map.of("filename", 2.0f, "content", 1.0f)
+                        Map.of("filename", 4.0f, "symbols", 2.0f, "content", 1.0f)
                 );
                 mfqp.setDefaultOperator(QueryParser.Operator.AND);
                 try {
@@ -274,6 +286,7 @@ public class LuceneIndexer {
                         parseLong(doc.get("size")),
                         parseLong(doc.get("modified")),
                         doc.get("suggestedName"),
+                        doc.get("snippet"),
                         sd.score
                 ));
             }
@@ -309,6 +322,36 @@ public class LuceneIndexer {
         return (dot > 0 && dot < fileName.length() - 1)
                 ? fileName.substring(dot + 1)
                 : "unknown";
+    }
+
+    private static String extractSymbols(String content, String ext) {
+        StringBuilder symbols = new StringBuilder();
+
+        // Classes/interfaces/enums
+        String classPattern = "(?:class|interface|enum)\\s+(\\w+)";
+        java.util.regex.Pattern p1 = java.util.regex.Pattern.compile(classPattern);
+        java.util.regex.Matcher m1 = p1.matcher(content);
+        while (m1.find() && symbols.length() < 1000) {
+            symbols.append(m1.group(1)).append(" ");
+        }
+
+        // Methods
+        String methodPattern = "(?:public|private|protected)\\s+\\w+\\s+(\\w+)\\s*\\(";
+        java.util.regex.Pattern p2 = java.util.regex.Pattern.compile(methodPattern);
+        java.util.regex.Matcher m2 = p2.matcher(content);
+        while (m2.find() && symbols.length() < 1000) {
+            symbols.append(m2.group(1)).append(" ");
+        }
+
+        // Annotations
+        String annotPattern = "@(\\w+)";
+        java.util.regex.Pattern p3 = java.util.regex.Pattern.compile(annotPattern);
+        java.util.regex.Matcher m3 = p3.matcher(content);
+        while (m3.find() && symbols.length() < 1000) {
+            symbols.append(m3.group(1)).append(" ");
+        }
+
+        return symbols.toString().trim();
     }
 
     private static long parseLong(String s) {
