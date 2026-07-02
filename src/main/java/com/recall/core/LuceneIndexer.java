@@ -55,8 +55,8 @@ public class LuceneIndexer {
     private static IndexWriter    writer;
     private static IndexSearcher  searcher;
     private static DirectoryReader reader;
-    private static final Tika     tika = new Tika();
     private static final AtomicBoolean needsRefresh = new AtomicBoolean(false);
+    private static final Object   readerLock = new Object();
 
     // ── lifecycle ─────────────────────────────────────────────────────────────
 
@@ -72,9 +72,11 @@ public class LuceneIndexer {
     }
 
     public static void close() {
-        try { if (writer != null) writer.close(); } catch (IOException ignored) {}
-        try { if (reader != null) reader.close(); } catch (IOException ignored) {}
-        try { if (directory != null) directory.close(); } catch (IOException ignored) {}
+        synchronized (readerLock) {
+            try { if (writer != null) writer.close(); } catch (IOException ignored) {}
+            try { if (reader != null) reader.close(); } catch (IOException ignored) {}
+            try { if (directory != null) directory.close(); } catch (IOException ignored) {}
+        }
     }
 
     // ── indexing ──────────────────────────────────────────────────────────────
@@ -213,12 +215,15 @@ public class LuceneIndexer {
         List<SearchResult> results = new ArrayList<>();
         try {
             // Reopen searcher only when index has changed — not on every call
+            // Synchronized to prevent concurrent reader.close() + reader = newReader race
             if (needsRefresh.getAndSet(false)) {
-                DirectoryReader newReader = DirectoryReader.openIfChanged(reader);
-                if (newReader != null) {
-                    reader.close();
-                    reader   = newReader;
-                    searcher = new IndexSearcher(reader);
+                synchronized (readerLock) {
+                    DirectoryReader newReader = DirectoryReader.openIfChanged(reader);
+                    if (newReader != null) {
+                        reader.close();
+                        reader   = newReader;
+                        searcher = new IndexSearcher(reader);
+                    }
                 }
             }
 

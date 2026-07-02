@@ -4,6 +4,7 @@ import com.github.kwhat.jnativehook.GlobalScreen;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
 import javax.swing.*;
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
@@ -163,11 +164,11 @@ public class HotkeyManager implements NativeKeyListener {
     // ── Search UI Toggle ───────────────────────────────────────────────────
     private void toggleSearchUI() {
         SwingUtilities.invokeLater(() -> {
-            SearchPanel panel = SearchPanel.getInstance();
-            if (panel.isVisible()) {
-                panel.close();
+            SearchPalette palette = SearchPalette.getInstance();
+            if (palette.isOpen()) {
+                palette.close();
             } else {
-                panel.open();
+                palette.open();
             }
         });
     }

@@ -1,13 +1,13 @@
 package com.recall;
 
+import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.FlatLaf;
 import com.recall.core.*;
-import com.recall.ui.SearchPanel;
-import com.recall.ui.FloatingIcon;
-import com.recall.ui.HotkeyManager;
+import com.recall.ui.*;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.concurrent.*;
@@ -15,20 +15,16 @@ import java.util.concurrent.*;
 /**
  * Application entry point.
  *
- * Key improvements vs original:
- *  - Bounded ThreadPoolExecutor (4 threads, queue cap 500) — no unbounded queue
- *  - Tray icon with global Ctrl+Space hotkey simulation
- *  - Clean shutdown hook (flushes index on exit)
- *  - JVM heap limited to 128 MB via launch script (add -Xmx128m to your run config)
+ * Updated to use FloatingLauncher + SearchPalette (no dim layer).
+ * FloatingLauncher expands into SearchPalette with spring animation.
  */
-
 public class Main {
 
-    // ── config (change these to match your environment) ───────────────────────
+    // ── config ─────────────────────────────────────────────────────────────
     private static final String INDEX_DIR = System.getProperty("user.home") + "/.filemind/index";
     private static final String DB_PATH   = System.getProperty("user.home") + "/.filemind/meta.db";
 
-    // Folders to index — edit this list or make it configurable in Settings later
+    // Folders to index
     private static final String[] WATCH_FOLDERS = {
             System.getProperty("user.home") + "/Documents",
             System.getProperty("user.home") + "/Downloads",
@@ -36,35 +32,56 @@ public class Main {
             System.getProperty("user.home") + "/Projects",
     };
 
-    // ── thread pool (4 indexing workers, bounded queue = backpressure) ────────
+    // ── thread pool ────────────────────────────────────────────────────────
     private static final ExecutorService indexExecutor = new ThreadPoolExecutor(
             4, 4, 0L, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(500),
             new ThreadPoolExecutor.DiscardOldestPolicy()
     );
 
-    private static SearchPanel searchPanel;
-    private static FloatingIcon floatingIcon;
+    // ── new UI components ──────────────────────────────────────────────────
+    private static FloatingLauncher floatingLauncher;
+    private static SearchPalette searchPalette;
+    private static PreviewPanel previewPanel;
     private static HotkeyManager hotkeyManager;
 
     // ─────────────────────────────────────────────────────────────────────────
     public static void main(String[] args) throws Exception {
-        // Enforce headless=false (required for system tray on some Linux distros)
         System.setProperty("java.awt.headless", "false");
 
-        // Startup on EDT
         SwingUtilities.invokeAndWait(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {}
+            // Initialize FlatLaf with dark theme (matches our design system)
+            FlatDarkLaf.setup();
+            // Enable window decorations for consistent title bar theming
+            // (disabled for our JWindow-based floating UI)
+            // FlatLaf.setGlobalExtraDefaults( Map.of( "@accentColor", "#3b82f6" ) );
+            UIManager.put("Component.arrowType", "triangle");
+            UIManager.put("Button.arc", 8);
+            UIManager.put("Component.focusWidth", 2);
+            UIManager.put("ScrollBar.thumbArc", 8);
+            UIManager.put("ScrollBar.thumbInsets", new Insets(2, 2, 2, 2));
 
-            // Initialize search panel (not shown on startup)
-            searchPanel = SearchPanel.getInstance();
+            // Initialize new SearchPalette (singleton)
+            searchPalette = SearchPalette.getInstance();
+
+            // Initialize PreviewPanel
+            previewPanel = new PreviewPanel();
+            searchPalette.setPreviewPanel(previewPanel);
+
+            // Initialize FloatingLauncher with expand callback
+            floatingLauncher = FloatingLauncher.createAndShow();
+            floatingLauncher.setOnExpandCallback(() -> {
+                if (searchPalette.isOpen()) {
+                    searchPalette.close();
+                } else {
+                    // Expand from launcher position with spring animation
+                    Rectangle launcherBounds = floatingLauncher.getLauncherBounds();
+                    searchPalette.setFloatingLauncher(floatingLauncher);
+                    searchPalette.openFromLauncher(launcherBounds);
+                }
+            });
 
             setupTrayIcon();
-
-            // Show floating icon
-            floatingIcon = FloatingIcon.createAndShow();
 
             // Initialize global hotkey
             hotkeyManager = HotkeyManager.init();
@@ -73,51 +90,37 @@ public class Main {
         // Register clean shutdown
         Runtime.getRuntime().addShutdownHook(new Thread(Main::shutdown, "filemind-shutdown"));
 
-        // Background services (non-EDT)
+        // Background services
         startBackgroundServices();
     }
 
     // ── background services ───────────────────────────────────────────────────
     private static void startBackgroundServices() {
-        // Use a single starter thread — it will submit file tasks to indexExecutor
         Thread starter = new Thread(() -> {
             try {
-                // 1. Init storage
                 Files.createDirectories(Paths.get(INDEX_DIR));
                 LuceneIndexer.init(Paths.get(INDEX_DIR));
                 MetadataDB.init(DB_PATH);
 
-                // 2. Index all watch folders
                 for (String folder : WATCH_FOLDERS) {
                     Path p = Paths.get(folder);
                     if (!Files.exists(p)) continue;
-
                     System.out.println("[INDEX] Indexing " + p.getFileName() + "...");
-
-                    // Submit each file as a separate task — parallel, bounded
-                    LuceneIndexer.indexFolder(p, (filePath, ok) -> {
-                        indexExecutor.submit(() -> {/* file already indexed inline in indexFolder */});
-                        // Update status every ~200 files without flooding the EDT
-                    });
-
-                    System.out.println("[INDEX] Indexed " + p.getFileName() + " ✓");
+                    LuceneIndexer.indexFolder(p, (filePath, ok) -> {});
+                    System.out.println("[INDEX] Indexed " + p.getFileName() + " \u2713");
                 }
 
                 System.out.println("[INDEX] Ready. Total documents: " + LuceneIndexer.getDocumentCount());
 
-                // 3. Start file watchers
                 for (String folder : WATCH_FOLDERS) {
                     Path p = Paths.get(folder);
                     if (!Files.exists(p)) continue;
-
                     FileWatcher.start(p, (event, path) -> {
-                        // Submit watcher events to the bounded executor
                         indexExecutor.submit(() -> {
                             try {
                                 switch (event) {
                                     case CREATE, MODIFY -> {
                                         LuceneIndexer.indexFile(path);
-                                        // Also update MetadataDB
                                         String ext = LuceneIndexer.getExtension(path.getFileName().toString());
                                         long size  = Files.exists(path) ? Files.size(path) : 0;
                                         long mod   = Files.exists(path)
@@ -129,7 +132,6 @@ public class Main {
                                         MetadataDB.delete(path.toString());
                                     }
                                 }
-                                // Index count is logged but not displayed in UI
                             } catch (IOException e) {
                                 System.err.println("[WATCH] Error: " + e.getMessage());
                             }
@@ -153,15 +155,14 @@ public class Main {
             return;
         }
 
-        // Create a simple 16×16 tray icon programmatically (no image file needed)
         Image trayImage = createTrayImage();
-        TrayIcon trayIcon = new TrayIcon(trayImage, "FileMind — Click to open");
+        TrayIcon trayIcon = new TrayIcon(trayImage, "FileMind \u2014 Click to open");
         trayIcon.setImageAutoSize(true);
 
         PopupMenu popup = new PopupMenu();
 
         MenuItem openItem = new MenuItem("Open FileMind");
-        openItem.addActionListener(e -> showUI());
+        openItem.addActionListener(e -> toggleSearchPalette());
 
         MenuItem exitItem = new MenuItem("Exit");
         exitItem.addActionListener(e -> {
@@ -174,27 +175,26 @@ public class Main {
         popup.add(exitItem);
         trayIcon.setPopupMenu(popup);
 
-        // Single-click tray icon → show window
-        trayIcon.addActionListener(e -> showUI());
+        trayIcon.addActionListener(e -> toggleSearchPalette());
 
         try {
             SystemTray.getSystemTray().add(trayIcon);
         } catch (AWTException e) {
             System.err.println("[TRAY] Could not add tray icon: " + e.getMessage());
         }
-
-        // Note: Global hotkey (Ctrl+Shift+F) is now handled by HotkeyManager using JNativeHook
-        // See HotkeyManager.java for configuration details
     }
 
-    private static void showUI() {
+    private static void toggleSearchPalette() {
         SwingUtilities.invokeLater(() -> {
-            SearchPanel.getInstance().opens
+            if (searchPalette.isOpen()) {
+                searchPalette.close();
+            } else {
+                searchPalette.open();
+            }
         });
     }
 
     private static Image createTrayImage() {
-        // Draw a simple blue magnifying glass as the tray icon
         int size = 16;
         java.awt.image.BufferedImage img =
                 new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
@@ -215,12 +215,15 @@ public class Main {
     public static void shutdown() {
         System.out.println("[SHUTDOWN] Cleaning up...");
 
-        // Unregister global hotkey
         if (hotkeyManager != null) {
             hotkeyManager.unregister();
         }
 
-        // Flush index and close database
+        // Stop floating launcher animations to prevent EDT ghosts
+        if (floatingLauncher != null) {
+            floatingLauncher.stopTimers();
+        }
+
         System.out.println("[SHUTDOWN] Flushing index and closing...");
         indexExecutor.shutdown();
         try {

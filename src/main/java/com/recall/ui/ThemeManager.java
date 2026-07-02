@@ -1,51 +1,31 @@
 package com.recall.ui;
 
+import com.recall.ui.design.DesignSystem;
+
 import java.awt.*;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.Properties;
 
 /**
- * Centralized theme management for dark/light modes.
+ * Centralized theme management for dark/light/auto modes.
  * Stores preference in ~/.filemind/config.properties
  */
 public class ThemeManager {
 
-    // ── Color Palettes ────────────────────────────────────────────────────
-    // Dark Mode
-    public static final Color DARK_OVERLAY_BG = new Color(0, 0, 0, 140);  // rgba(0,0,0,0.55)
-    public static final Color DARK_PANEL_BG = new Color(0x0f172a);
-    public static final Color DARK_PANEL_BORDER = new Color(0x334155);
-    public static final Color DARK_SEARCH_BG = new Color(0x1e293b);
-    public static final Color DARK_SEARCH_TEXT = new Color(0xf1f5f9);
-    public static final Color DARK_PLACEHOLDER = new Color(0x475569);
-    public static final Color DARK_ACCENT = new Color(0x3b82f6);
-    public static final Color DARK_RESULT_HOVER = new Color(0x1e3a5f);
-    public static final Color DARK_TEXT_PRIMARY = new Color(0xf1f5f9);
-    public static final Color DARK_TEXT_SECONDARY = new Color(0x94a3b8);
-    public static final Color DARK_TEXT_HINT = new Color(0x64748b);
-    public static final Color DARK_SEPARATOR = new Color(0x1e293b);
-
-    // Light Mode
-    public static final Color LIGHT_OVERLAY_BG = new Color(0, 0, 0, 76);  // rgba(0,0,0,0.30)
-    public static final Color LIGHT_PANEL_BG = Color.WHITE;
-    public static final Color LIGHT_PANEL_BORDER = new Color(0xe5e7eb);
-    public static final Color LIGHT_SEARCH_BG = new Color(0xf1f5f9);
-    public static final Color LIGHT_SEARCH_TEXT = new Color(0x0f172a);
-    public static final Color LIGHT_PLACEHOLDER = new Color(0x9ca3af);
-    public static final Color LIGHT_ACCENT = new Color(0x3b82f6);
-    public static final Color LIGHT_RESULT_HOVER = new Color(0xeff6ff);
-    public static final Color LIGHT_TEXT_PRIMARY = new Color(0x0f172a);
-    public static final Color LIGHT_TEXT_SECONDARY = new Color(0x6b7280);
-    public static final Color LIGHT_TEXT_HINT = new Color(0x9ca3af);
-    public static final Color LIGHT_SEPARATOR = new Color(0xf3f4f6);
+    // --- Theme Enum ----------------------------------------------------
+    public enum Theme {
+        DARK, LIGHT, AUTO
+    }
 
     // ── State ──────────────────────────────────────────────────────────────
-    private static boolean isDarkMode = true;
+    private static Theme currentTheme = Theme.DARK; // Default theme
+    private static boolean isDarkModeActive = true; // Actual active mode based on currentTheme or AUTO resolution
     private static final String CONFIG_FILE = System.getProperty("user.home") + "/.filemind/config.properties";
 
     static {
         loadThemePreference();
+        applyDesignSystemColors(); // Apply colors on startup
     }
 
     // ── Load/Save Theme ───────────────────────────────────────────────────
@@ -55,18 +35,26 @@ public class ThemeManager {
             try {
                 Properties props = new Properties();
                 props.load(Files.newInputStream(configPath));
-                String theme = props.getProperty("theme", "dark");
-                isDarkMode = theme.equalsIgnoreCase("dark");
+                String themeStr = props.getProperty("theme", "dark");
+                try {
+                    currentTheme = Theme.valueOf(themeStr.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    currentTheme = Theme.DARK; // Fallback to dark if invalid value
+                }
             } catch (IOException ignored) {
-                isDarkMode = true;
+                currentTheme = Theme.DARK;
             }
         } else {
-            saveThemePreference(isDarkMode);
+            // If no config file, save default (which will call saveThemePreference)
+            saveThemePreference(currentTheme);
         }
+
+        resolveAndApplyAutoTheme();
     }
 
-    public static void saveThemePreference(boolean darkMode) {
-        isDarkMode = darkMode;
+    public static void saveThemePreference(Theme theme) {
+        currentTheme = theme;
+        resolveAndApplyAutoTheme(); // Resolve AUTO theme before saving
         try {
             Path configDir = Paths.get(System.getProperty("user.home"), ".filemind");
             Files.createDirectories(configDir);
@@ -76,69 +64,206 @@ public class ThemeManager {
             if (Files.exists(configPath)) {
                 props.load(Files.newInputStream(configPath));
             }
-            props.setProperty("theme", darkMode ? "dark" : "light");
+            props.setProperty("theme", currentTheme.name().toLowerCase());
             props.store(Files.newOutputStream(configPath), "FileMind Configuration");
         } catch (IOException e) {
             System.err.println("[THEME] Failed to save theme preference: " + e.getMessage());
         }
     }
 
+    private static void resolveAndApplyAutoTheme() {
+        if (currentTheme == Theme.AUTO) {
+            // Simple heuristic for OS dark mode detection (might not be accurate on all systems)
+            // A more robust solution would involve platform-specific APIs (e.g., D-Bus on Linux, Win registry on Windows)
+            // For now, we'll default to dark mode for AUTO on Linux, or check a property if available.
+            boolean osIsDark = false;
+            String osName = System.getProperty("os.name").toLowerCase();
+            if (osName.contains("windows")) {
+                // Windows 10/11 dark mode check via registry (complex in Java, not doing here)
+                // For simplicity, default to dark for AUTO on Windows for now.
+                osIsDark = false; // Default for Windows auto to light until proper detection
+            } else if (osName.contains("mac")) {
+                // macOS dark mode check (requires native code, not doing here)
+                // For simplicity, default to dark for AUTO on Mac for now.
+                osIsDark = true;
+            } else if (osName.contains("linux")) {
+                // Linux desktop environment (Gnome, KDE) dark mode check (complex)
+                // Default to dark for AUTO on Linux for now.
+                osIsDark = true;
+            }
+            isDarkModeActive = osIsDark; // Set the actual active mode
+        } else {
+            isDarkModeActive = (currentTheme == Theme.DARK);
+        }
+        applyDesignSystemColors();
+    }
+
+    /**
+     * Applies the current theme's colors to the DesignSystem static fields.
+     * This method should be called whenever the theme changes.
+     */
+    private static void applyDesignSystemColors() {
+        if (isDarkModeActive) {
+            DesignSystem.surfacePrimary = Color.decode("#0f172a");
+            DesignSystem.surfaceSecondary = Color.decode("#1e293b");
+            DesignSystem.surfaceHighlight = Color.decode("#1e3a5f");
+            DesignSystem.surfaceAccent = Color.decode("#3b82f6");
+            DesignSystem.textPrimary = Color.decode("#f1f5f9");
+            DesignSystem.textSecondary = Color.decode("#94a3b8");
+            DesignSystem.textTertiary = Color.decode("#64748b");
+            DesignSystem.textOnAccent = Color.WHITE;
+            DesignSystem.borderPrimary = Color.decode("#334155");
+            DesignSystem.borderSecondary = Color.decode("#3b82f6");
+            DesignSystem.overlayDim = new Color(0, 0, 0, 140);
+            DesignSystem.statusInfo = Color.decode("#16a34a");
+            DesignSystem.statusError = Color.decode("#dc2626");
+            DesignSystem.statusWarning = Color.decode("#d97706");
+            // File type colors (remain the same for now, but could have dark/light variants)
+            DesignSystem.fileTypePdf = Color.decode("#ef4444");
+            DesignSystem.fileTypeWord = Color.decode("#2563eb");
+            DesignSystem.fileTypeExcel = Color.decode("#16a34a");
+            DesignSystem.fileTypeImage = Color.decode("#a855f7");
+            DesignSystem.fileTypeVideo = Color.decode("#ec4899");
+            DesignSystem.fileTypeFolder = Color.decode("#f59e0b");
+            DesignSystem.fileTypeCode = Color.decode("#3b82f6");
+            DesignSystem.fileTypeJava = Color.decode("#f97316");
+            DesignSystem.fileTypePython = Color.decode("#3b82f6");
+            DesignSystem.fileTypeZip = Color.decode("#64748b");
+            DesignSystem.fileTypeAudio = Color.decode("#eab308");
+            DesignSystem.fileTypeExecutable = Color.decode("#7c3aed");
+            DesignSystem.fileTypeText = Color.decode("#cbd5e1");
+            DesignSystem.fileTypeHtml = Color.decode("#0d9488");
+            DesignSystem.fileTypeMarkdown = Color.decode("#4f46e5");
+            DesignSystem.fileTypeDefault = Color.decode("#64748b");
+
+        } else { // Light Mode
+            DesignSystem.surfacePrimary = Color.WHITE;
+            DesignSystem.surfaceSecondary = Color.decode("#f1f5f9");
+            DesignSystem.surfaceHighlight = Color.decode("#eff6ff");
+            DesignSystem.surfaceAccent = Color.decode("#3b82f6");
+            DesignSystem.textPrimary = Color.decode("#0f172a");
+            DesignSystem.textSecondary = Color.decode("#6b7280");
+            DesignSystem.textTertiary = Color.decode("#9ca3af");
+            DesignSystem.textOnAccent = Color.WHITE;
+            DesignSystem.borderPrimary = Color.decode("#e5e7eb");
+            DesignSystem.borderSecondary = Color.decode("#3b82f6");
+            DesignSystem.overlayDim = new Color(0, 0, 0, 76);
+            DesignSystem.statusInfo = Color.decode("#16a34a");
+            DesignSystem.statusError = Color.decode("#dc2626");
+            DesignSystem.statusWarning = Color.decode("#d97706");
+            // File type colors
+            DesignSystem.fileTypePdf = Color.decode("#ef4444");
+            DesignSystem.fileTypeWord = Color.decode("#2563eb");
+            DesignSystem.fileTypeExcel = Color.decode("#16a34a");
+            DesignSystem.fileTypeImage = Color.decode("#a855f7");
+            DesignSystem.fileTypeVideo = Color.decode("#ec4899");
+            DesignSystem.fileTypeFolder = Color.decode("#f59e0b");
+            DesignSystem.fileTypeCode = Color.decode("#3b82f6");
+            DesignSystem.fileTypeJava = Color.decode("#f97316");
+            DesignSystem.fileTypePython = Color.decode("#3b82f6");
+            DesignSystem.fileTypeZip = Color.decode("#64748b");
+            DesignSystem.fileTypeAudio = Color.decode("#eab308");
+            DesignSystem.fileTypeExecutable = Color.decode("#7c3aed");
+            DesignSystem.fileTypeText = Color.decode("#cbd5e1");
+            DesignSystem.fileTypeHtml = Color.decode("#0d9488");
+            DesignSystem.fileTypeMarkdown = Color.decode("#4f46e5");
+            DesignSystem.fileTypeDefault = Color.decode("#64748b");
+        }
+    }
+
     // ── Color Getters ─────────────────────────────────────────────────────
+    // These now return colors directly from DesignSystem
     public static Color getOverlayBg() {
-        return isDarkMode ? DARK_OVERLAY_BG : LIGHT_OVERLAY_BG;
+        return DesignSystem.overlayDim;
     }
 
     public static Color getPanelBg() {
-        return isDarkMode ? DARK_PANEL_BG : LIGHT_PANEL_BG;
+        return DesignSystem.surfacePrimary;
     }
 
     public static Color getPanelBorder() {
-        return isDarkMode ? DARK_PANEL_BORDER : LIGHT_PANEL_BORDER;
+        return DesignSystem.borderPrimary;
     }
 
     public static Color getSearchBg() {
-        return isDarkMode ? DARK_SEARCH_BG : LIGHT_SEARCH_BG;
+        return DesignSystem.surfaceSecondary;
     }
 
     public static Color getSearchText() {
-        return isDarkMode ? DARK_SEARCH_TEXT : LIGHT_SEARCH_TEXT;
+        return DesignSystem.textPrimary;
     }
 
     public static Color getPlaceholder() {
-        return isDarkMode ? DARK_PLACEHOLDER : LIGHT_PLACEHOLDER;
+        return DesignSystem.textTertiary;
     }
 
     public static Color getAccent() {
-        return isDarkMode ? DARK_ACCENT : LIGHT_ACCENT;
+        return DesignSystem.surfaceAccent;
     }
 
     public static Color getResultHover() {
-        return isDarkMode ? DARK_RESULT_HOVER : LIGHT_RESULT_HOVER;
+        return DesignSystem.surfaceHighlight;
     }
 
     public static Color getTextPrimary() {
-        return isDarkMode ? DARK_TEXT_PRIMARY : LIGHT_TEXT_PRIMARY;
+        return DesignSystem.textPrimary;
     }
 
     public static Color getTextSecondary() {
-        return isDarkMode ? DARK_TEXT_SECONDARY : LIGHT_TEXT_SECONDARY;
+        return DesignSystem.textSecondary;
     }
 
     public static Color getTextHint() {
-        return isDarkMode ? DARK_TEXT_HINT : LIGHT_TEXT_HINT;
+        return DesignSystem.textTertiary;
     }
 
     public static Color getSeparator() {
-        return isDarkMode ? DARK_SEPARATOR : LIGHT_SEPARATOR;
+        // DesignSystem currently has borderPrimary as separator, using that for now.
+        // Could introduce a specific separator color if needed.
+        return DesignSystem.borderPrimary;
     }
 
     public static boolean isDark() {
-        return isDarkMode;
+        return isDarkModeActive;
+    }
+
+    public static Theme getCurrentTheme() {
+        return currentTheme;
     }
 
     public static void toggleTheme() {
-        isDarkMode = !isDarkMode;
-        saveThemePreference(isDarkMode);
+        switch (currentTheme) {
+            case DARK -> saveThemePreference(Theme.LIGHT);
+            case LIGHT -> saveThemePreference(Theme.AUTO);
+            case AUTO -> saveThemePreference(Theme.DARK);
+        }
+        // No need to call applyDesignSystemColors here, saveThemePreference does it.
+    }
+
+    /**
+     * Helper to get a specific file type color from DesignSystem.
+     * @param fileType A string identifier for the file type (e.g., "pdf", "java", "folder").
+     * @return The corresponding color from DesignSystem, or DesignSystem.fileTypeDefault if not found.
+     */
+    public static Color getFileTypeColor(String fileType) {
+        return switch (fileType.toLowerCase()) {
+            case "pdf" -> DesignSystem.fileTypePdf;
+            case "doc", "docx" -> DesignSystem.fileTypeWord;
+            case "xls", "xlsx", "csv" -> DesignSystem.fileTypeExcel;
+            case "png", "jpg", "jpeg", "gif", "bmp", "svg", "webp" -> DesignSystem.fileTypeImage;
+            case "mp4", "avi", "mkv", "mov" -> DesignSystem.fileTypeVideo;
+            case "folder" -> DesignSystem.fileTypeFolder; // Note: needs to be passed explicitly for folders
+            case "java" -> DesignSystem.fileTypeJava;
+            case "py" -> DesignSystem.fileTypePython;
+            case "js", "ts", "cpp", "c", "h", "go", "rs", "kt", "swift" -> DesignSystem.fileTypeCode;
+            case "zip", "rar", "7z" -> DesignSystem.fileTypeZip;
+            case "mp3", "wav", "flac" -> DesignSystem.fileTypeAudio;
+            case "exe", "app", "bat", "sh" -> DesignSystem.fileTypeExecutable;
+            case "txt" -> DesignSystem.fileTypeText;
+            case "html", "htm" -> DesignSystem.fileTypeHtml;
+            case "md" -> DesignSystem.fileTypeMarkdown;
+            default -> DesignSystem.fileTypeDefault;
+        };
     }
 
     // ── Apply Theme to Component ───────────────────────────────────────────
@@ -149,6 +274,8 @@ public class ThemeManager {
             ((javax.swing.JTextField) comp).setBackground(getSearchBg());
             ((javax.swing.JTextField) comp).setForeground(getSearchText());
         }
+        // Extend to other component types as needed.
+        // Ensure to handle borders and other styling as well.
 
         if (comp instanceof java.awt.Container) {
             for (Component child : ((java.awt.Container) comp).getComponents()) {
@@ -157,4 +284,3 @@ public class ThemeManager {
         }
     }
 }
-

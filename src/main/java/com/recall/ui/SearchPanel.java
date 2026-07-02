@@ -50,6 +50,7 @@ public class SearchPanel extends JWindow {
     private JLabel nlHintLabel;
     private ResultRenderer resultRenderer;
     private HelpOverlayPanel helpOverlay;
+    private KeyEventDispatcher helpDispatcher;
 
     private javax.swing.Timer searchDebounceTimer;
     private String activeCategory = "All";
@@ -668,14 +669,15 @@ public class SearchPanel extends JWindow {
         });
 
         // Also listen for ? globally within search panel
-        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(ke -> {
+        helpDispatcher = ke -> {
             if (ke.getID() == KeyEvent.KEY_PRESSED && ke.getKeyCode() == KeyEvent.VK_SLASH
                     && ke.isShiftDown() && isVisible() && !helpOverlay.isVisible()) {
                 helpOverlay.showOverlay();
                 return true;
             }
             return false;
-        });
+        };
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(helpDispatcher);
     }
 
     // ── Search Logic ───────────────────────────────────────────────────────
@@ -1014,6 +1016,11 @@ public class SearchPanel extends JWindow {
     }
 
     public void close() {
+        // Unregister global key dispatcher to prevent listener leak
+        if (helpDispatcher != null) {
+            KeyboardFocusManager.getCurrentKeyboardFocusManager().removeKeyEventDispatcher(helpDispatcher);
+            helpDispatcher = null;
+        }
         // Hide help overlay if visible
         if (helpOverlay != null) helpOverlay.hideOverlay();
         chipBar.setVisible(false);

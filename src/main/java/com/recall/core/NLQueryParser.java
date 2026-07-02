@@ -103,6 +103,18 @@ public class NLQueryParser {
             "a","an","in","at","to","do","want","need","some","any"
     );
 
+    // Pre-compiled regex patterns (avoid per-call Pattern.compile)
+    private static final Pattern DAYS_AGO = Pattern.compile(
+            "(\\d+)\\s*(day|hour|minute)s?\\s*ago");
+    private static final Pattern LAST_N = Pattern.compile(
+            "last\\s+(\\d+)\\s*(day|hour|week)s?");
+    private static final Pattern TIME_OF_DAY = Pattern.compile(
+            "(?:between|from)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?\\s+(?:and|to)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)");
+    private static final Pattern LARGER = Pattern.compile(
+            "(larger|bigger|more|greater)\\s+than\\s+(\\d+(?:\\.\\d+)?)\\s*(kb|mb|gb)");
+    private static final Pattern SMALLER = Pattern.compile(
+            "(smaller|less|under)\\s+than\\s+(\\d+(?:\\.\\d+)?)\\s*(kb|mb|gb)");
+
     // ── main parse method ─────────────────────────────────────────────────────
     public static ParsedQuery parse(String raw) {
         if (raw == null || raw.isBlank())
@@ -125,9 +137,7 @@ public class NLQueryParser {
 
         // ── 2. history / time-ago queries ──────────────────────────
         // "files I worked on 2 days ago" / "yesterday" / "today" / "last 3 days"
-        Matcher daysAgo = Pattern.compile(
-                "(\\d+)\\s*(day|hour|minute)s?\\s*ago"
-        ).matcher(lower);
+        Matcher daysAgo = DAYS_AGO.matcher(lower);
         if (daysAgo.find()) {
             historyOnly = true;
             long n    = Long.parseLong(daysAgo.group(1));
@@ -154,7 +164,7 @@ public class NLQueryParser {
         }
 
         // "last N days/hours"
-        Matcher lastN = Pattern.compile("last\\s+(\\d+)\\s*(day|hour|week)s?").matcher(lower);
+        Matcher lastN = LAST_N.matcher(lower);
         if (lastN.find()) {
             long n    = Long.parseLong(lastN.group(1));
             String unit = lastN.group(2);
@@ -169,9 +179,7 @@ public class NLQueryParser {
 
         // ── 3. time-of-day range ───────────────────────────────────
         // "between 2am and 5pm" / "from 14:00 to 17:00"
-        Matcher tod = Pattern.compile(
-                "(?:between|from)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?\\s+(?:and|to)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)"
-        ).matcher(lower);
+        Matcher tod = TIME_OF_DAY.matcher(lower);
         if (tod.find()) {
             todAfter  = toHour(Integer.parseInt(tod.group(1)), tod.group(3));
             todBefore = toHour(Integer.parseInt(tod.group(4)), tod.group(6));
@@ -180,16 +188,12 @@ public class NLQueryParser {
 
         // ── 4. size filters ────────────────────────────────────────
         // "larger than 5MB" / "smaller than 100KB" / "bigger than 1GB"
-        Matcher larger = Pattern.compile(
-                "(larger|bigger|more|greater)\\s+than\\s+(\\d+(?:\\.\\d+)?)\\s*(kb|mb|gb)"
-        ).matcher(lower);
+        Matcher larger = LARGER.matcher(lower);
         if (larger.find()) {
             minSize = toBytes(Double.parseDouble(larger.group(2)), larger.group(3));
             workingText = larger.replaceAll("").trim();
         }
-        Matcher smaller = Pattern.compile(
-                "(smaller|less|under)\\s+than\\s+(\\d+(?:\\.\\d+)?)\\s*(kb|mb|gb)"
-        ).matcher(lower);
+        Matcher smaller = SMALLER.matcher(lower);
         if (smaller.find()) {
             maxSize = toBytes(Double.parseDouble(smaller.group(2)), smaller.group(3));
             workingText = smaller.replaceAll("").trim();

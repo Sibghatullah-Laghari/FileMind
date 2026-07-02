@@ -20,6 +20,7 @@ public class MetadataDB {
             stmt.execute("PRAGMA journal_mode=WAL");
             stmt.execute("PRAGMA synchronous=NORMAL");
             stmt.execute("PRAGMA cache_size=-8000");  // 8 MB page cache
+            stmt.execute("PRAGMA busy_timeout=5000");  // Block up to 5s instead of SQLITE_BUSY
 
             // File metadata table
             stmt.execute("""
