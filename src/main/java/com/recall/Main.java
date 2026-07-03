@@ -17,6 +17,23 @@ import java.util.concurrent.*;
  *
  * Updated to use FloatingLauncher + SearchPalette (no dim layer).
  * FloatingLauncher expands into SearchPalette with spring animation.
+ *
+ * FIXME: The application uses both MetadataDB and LuceneIndexer but MetadataDB
+ *        is only used for activity history (the files table is redundant).
+ *        See core module issues for more details.
+ *
+ * FIXME: The startup sequence blocks the EDT while indexing large folders.
+ *        indexFolder() runs on the startup thread, not in the background,
+ *        causing UI freezes until initial indexing completes.
+ *
+ * FIXME: The indexExecutor uses DiscardOldestPolicy which can drop indexing
+ *        events if the queue is full, leading to missed updates.
+ *
+ * FIXME: The shutdown hook does not guarantee that all indexing tasks complete
+ *        before LuceneIndexer.close() is called, risking index corruption.
+ *
+ * FIXME: System tray icon creation uses a manually drawn image; better to use
+ *        an actual icon resource for clarity.
  */
 public class Main {
 
@@ -24,7 +41,8 @@ public class Main {
     private static final String INDEX_DIR = System.getProperty("user.home") + "/.filemind/index";
     private static final String DB_PATH   = System.getProperty("user.home") + "/.filemind/meta.db";
 
-    // Folders to index
+    // Folders to index – FIXME: These are hardcoded and not user-configurable.
+    // FIXME: Should be read from settings or allow user to add/remove folders.
     private static final String[] WATCH_FOLDERS = {
             System.getProperty("user.home") + "/Documents",
             System.getProperty("user.home") + "/Downloads",
@@ -33,6 +51,12 @@ public class Main {
     };
 
     // ── thread pool ────────────────────────────────────────────────────────
+    /**
+     * Thread pool for handling file system events (index updates).
+     * Core size 4, bounded queue with DiscardOldestPolicy.
+     * FIXME: DiscardOldestPolicy may silently drop important events;
+     *        consider using a rejection handler that logs or retries.
+     */
     private static final ExecutorService indexExecutor = new ThreadPoolExecutor(
             4, 4, 0L, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(500),
@@ -95,6 +119,17 @@ public class Main {
     }
 
     // ── background services ───────────────────────────────────────────────────
+    /**
+     * Starts background indexing and file watching.
+     * This method runs on a separate thread but blocks while indexing,
+     * causing a delay before FileWatcher starts.
+     *
+     * FIXME: The initial indexing is done sequentially and blocks the startup
+     *        thread. Should index in the background and start watching immediately.
+     *
+     * FIXME: Indexing each folder separately with indexFolder() may lead to
+     *        redundant work; should use a single indexFolder() on the root.
+     */
     private static void startBackgroundServices() {
         Thread starter = new Thread(() -> {
             try {
@@ -121,6 +156,7 @@ public class Main {
                                 switch (event) {
                                     case CREATE, MODIFY -> {
                                         LuceneIndexer.indexFile(path);
+                                        // FIXME: This updates MetadataDB.files table, but that table is redundant.
                                         String ext = LuceneIndexer.getExtension(path.getFileName().toString());
                                         long size  = Files.exists(path) ? Files.size(path) : 0;
                                         long mod   = Files.exists(path)
@@ -149,6 +185,13 @@ public class Main {
     }
 
     // ── system tray ───────────────────────────────────────────────────────────
+    /**
+     * Sets up the system tray icon with popup menu.
+     * FIXME: The tray icon is added even if the user doesn't want it;
+     *        should be optional and configurable.
+     * FIXME: The tray image is manually drawn; it's small and may not look
+     *        good on high-DPI screens.
+     */
     private static void setupTrayIcon() {
         if (!SystemTray.isSupported()) {
             System.out.println("[TRAY] System tray not supported on this platform");
@@ -167,7 +210,7 @@ public class Main {
         MenuItem exitItem = new MenuItem("Exit");
         exitItem.addActionListener(e -> {
             SystemTray.getSystemTray().remove(trayIcon);
-            System.exit(0);
+            System.exit(0); // FIXME: Abrupt exit, should call shutdown() gracefully.
         });
 
         popup.add(openItem);
@@ -184,6 +227,10 @@ public class Main {
         }
     }
 
+    /**
+     * Toggles the search palette open/close.
+     * FIXME: This assumes searchPalette is not null – but may be if initialization fails.
+     */
     private static void toggleSearchPalette() {
         SwingUtilities.invokeLater(() -> {
             if (searchPalette.isOpen()) {
@@ -194,6 +241,10 @@ public class Main {
         });
     }
 
+    /**
+     * Creates a simple magnifying glass icon for the system tray.
+     * FIXME: Should use a pre‑made image or SVG for better quality.
+     */
     private static Image createTrayImage() {
         int size = 16;
         java.awt.image.BufferedImage img =
@@ -212,6 +263,11 @@ public class Main {
     }
 
     // ── shutdown ──────────────────────────────────────────────────────────
+    /**
+     * Gracefully shuts down all services: hotkey, animations, indexer, file watcher.
+     * FIXME: This method may be called from a shutdown hook, but the hook may
+     *        not have enough time to complete; should ensure all tasks finish.
+     */
     public static void shutdown() {
         System.out.println("[SHUTDOWN] Cleaning up...");
 

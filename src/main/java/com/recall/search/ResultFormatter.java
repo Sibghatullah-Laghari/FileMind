@@ -20,14 +20,22 @@ import java.time.format.DateTimeFormatter;
  */
 public final class ResultFormatter {
 
+    /** Standard date formatter: "dd MMM yyyy  HH:mm". */
     private static final DateTimeFormatter DATE_FMT_STANDARD =
             DateTimeFormatter.ofPattern("dd MMM yyyy  HH:mm");
+
+    /** Decimal formatter for file sizes (one decimal place). */
     private static final DecimalFormat DECIMAL_FMT = new DecimalFormat("0.#");
 
+    /** Private constructor to prevent instantiation of this utility class. */
     private ResultFormatter() {} // Utility class
 
     /**
-     * Human-readable file size.
+     * Converts a file size in bytes to a human‑readable string.
+     * Examples: "2.3 MB", "450 KB", "1.2 GB".
+     *
+     * @param sizeBytes the file size in bytes
+     * @return formatted size string
      */
     public static String displaySize(long sizeBytes) {
         if (sizeBytes < 1024)             return sizeBytes + " B";
@@ -38,7 +46,10 @@ public final class ResultFormatter {
     }
 
     /**
-     * Human-readable modified date.
+     * Formats a timestamp as a standard date string.
+     *
+     * @param modifiedMs the last modified time in milliseconds since epoch
+     * @return formatted date string (e.g., "15 Mar 2025  14:30")
      */
     public static String displayDate(long modifiedMs) {
         LocalDateTime dt = LocalDateTime.ofInstant(
@@ -47,7 +58,13 @@ public final class ResultFormatter {
     }
 
     /**
-     * Smart date: "Today 14:23", "Yesterday 09:15", or "12 Mar 2024".
+     * Returns a smart, relative date string:
+     * - "Today 14:23" for today's files
+     * - "Yesterday 09:15" for yesterday's files
+     * - "12 Mar 2024" for older files
+     *
+     * @param modifiedMs the last modified time in milliseconds since epoch
+     * @return a user‑friendly relative date string
      */
     public static String smartDate(long modifiedMs) {
         LocalDateTime dt = LocalDateTime.ofInstant(
@@ -65,7 +82,12 @@ public final class ResultFormatter {
     }
 
     /**
-     * Parent folder display (last two segments).
+     * Extracts the parent folder name(s) from a file path.
+     * Shows the last two path segments for context.
+     *
+     * @param path the absolute file path
+     * @return the parent folder string (e.g., "Projects/recall-search"),
+     *         or an empty string if no parent exists
      */
     public static String parentFolder(String path) {
         if (path == null || path.isBlank()) return "";
@@ -79,7 +101,10 @@ public final class ResultFormatter {
     }
 
     /**
-     * Human-readable file type description.
+     * Returns a human‑readable description of a file type based on its extension.
+     *
+     * @param ext the file extension (without dot), or null/empty
+     * @return a descriptive type name (e.g., "PDF Document", "Java Source")
      */
     public static String describeFileType(String ext) {
         if (ext == null || ext.isEmpty()) return "Unknown";
@@ -111,6 +136,12 @@ public final class ResultFormatter {
         };
     }
 
+    /**
+     * Helper to format a double with one decimal place.
+     *
+     * @param v the value to format
+     * @return a string with one decimal digit
+     */
     private static String fmt(double v) {
         return DECIMAL_FMT.format(v);
     }

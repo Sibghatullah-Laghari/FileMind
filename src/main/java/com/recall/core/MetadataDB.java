@@ -10,8 +10,17 @@ import java.sql.*;
  */
 public class MetadataDB {
 
+    /** The single database connection used for all operations. */
     private static Connection conn;
 
+    /**
+     * Initializes the SQLite database at the given path.
+     * Creates the 'files' table and the activity history table if they don't exist.
+     * Sets pragmas for WAL mode, performance, and timeout.
+     *
+     * @param dbPath the file path to the SQLite database
+     * @throws SQLException if a database access error occurs
+     */
     public static void init(String dbPath) throws SQLException {
         conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
 
@@ -40,8 +49,23 @@ public class MetadataDB {
         ActivityHistory.createTable(conn);
     }
 
+    /**
+     * Returns the active database connection.
+     *
+     * @return the Connection instance used by MetadataDB
+     */
     public static Connection getConnection() { return conn; }
 
+    /**
+     * Inserts or replaces a file record in the 'files' table.
+     * If the file already exists, the record is updated.
+     *
+     * @param path           absolute file path (primary key)
+     * @param modified       last modified timestamp in milliseconds
+     * @param size           file size in bytes
+     * @param type           file extension or MIME type
+     * @param suggestedName  a human-friendly suggested name for the file (may be null)
+     */
     public static void upsert(String path, long modified, long size, String type, String suggestedName) {
         String sql = """
             INSERT OR REPLACE INTO files
@@ -60,6 +84,11 @@ public class MetadataDB {
         }
     }
 
+    /**
+     * Deletes a file record from the 'files' table by its path.
+     *
+     * @param path the absolute file path to delete
+     */
     public static void delete(String path) {
         String sql = "DELETE FROM files WHERE path = ?";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -70,6 +99,10 @@ public class MetadataDB {
         }
     }
 
+    /**
+     * Closes the database connection if it is open and not already closed.
+     * Should be called during application shutdown.
+     */
     public static void close() {
         try { if (conn != null && !conn.isClosed()) conn.close(); }
         catch (SQLException ignored) {}

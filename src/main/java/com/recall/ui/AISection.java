@@ -18,11 +18,15 @@ import java.awt.event.ActionListener;
  *  - "Summarize this folder"
  *
  * This is UI only — no backend AI implementation.
+ *
+ * FIXME: This component does not integrate with the actual search logic.
+ *        Clicking a suggestion prints to console but does not trigger a search.
+ *        Needs a callback or listener to update the search field or execute search.
  */
 public class AISection extends JPanel {
 
     private static final int SECTION_HEIGHT = 90;
-    private boolean isExpanded = false;
+    private boolean isExpanded = false; // FIXME: Unused field – remove or implement toggle logic.
 
     /**
      * Creates the AI section (initially collapsed).
@@ -35,6 +39,7 @@ public class AISection extends JPanel {
 
     /**
      * Shows the AI suggestion section with default cards.
+     * Rebuilds the UI each time – could be optimized with a single build and show/hide.
      */
     public void showSuggestions() {
         removeAll();
@@ -100,6 +105,8 @@ public class AISection extends JPanel {
 
     /**
      * Toggles the AI section visibility.
+     * FIXME: Toggle does not actually expand/collapse; just shows/hides.
+     *        The `isExpanded` field is unused and should control a smooth animation.
      */
     public void toggle() {
         if (isVisible()) {
@@ -109,6 +116,11 @@ public class AISection extends JPanel {
         }
     }
 
+    /**
+     * Creates a pill-shaped suggestion button.
+     * FIXME: The button's action command is set but never used to trigger search.
+     *        Need to wire this to the parent search field or a controller.
+     */
     private JButton createSuggestionCard(String displayText, String actionCommand) {
         JButton card = new JButton(displayText);
         card.setFont(DesignSystem.FONT_SMALL);
@@ -154,6 +166,7 @@ public class AISection extends JPanel {
             // Placeholder: when clicked, set the search field text
             // This should be connected to the parent SearchPalette
             System.out.println("AI suggestion clicked: " + e.getActionCommand());
+            // FIXME: This does nothing useful. Should either set the search text or execute a search.
         });
 
         // Rollover listener for repaint

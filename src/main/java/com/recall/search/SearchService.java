@@ -19,26 +19,44 @@ import java.util.concurrent.Executors;
  */
 public final class SearchService {
 
+    /** Singleton instance of the SearchService. */
     private static final SearchService INSTANCE = new SearchService();
+
+    /** Cache for recent search results and autocomplete suggestions. */
     private final SearchCache cache;
-    // Dedicated executor prevents search from competing with ForkJoinPool / indexing threads
+
+    /** Dedicated single‑thread executor for search tasks to prevent competition with other threads. */
     private final ExecutorService searchExecutor = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "filemind-search");
         t.setDaemon(true);
         return t;
     });
 
+    /**
+     * Private constructor for singleton pattern.
+     */
     private SearchService() {
         this.cache = new SearchCache();
     }
 
+    /**
+     * Returns the singleton instance of the SearchService.
+     *
+     * @return the shared SearchService instance
+     */
     public static SearchService getInstance() {
         return INSTANCE;
     }
 
     /**
-     * Execute an asynchronous search. Returns immediately with a CompletableFuture.
-     * Publishes SearchCompleteEvent on completion.
+     * Executes an asynchronous search for the given query.
+     * The result is returned as a CompletableFuture that completes when the search finishes.
+     * Cache is checked first; if a cached result exists, it is returned immediately.
+     * Upon completion, a SearchCompleteEvent is published via EventBus.
+     *
+     * @param query      the natural language search query
+     * @param maxResults maximum number of results to return
+     * @return a CompletableFuture containing the list of SearchResult objects
      */
     public CompletableFuture<List<SearchResult>> searchAsync(String query, int maxResults) {
         if (query == null || query.isBlank()) {
@@ -68,8 +86,13 @@ public final class SearchService {
     }
 
     /**
-     * Synchronous search (for non-UI threads or batch operations).
-     * Blocks calling thread.
+     * Executes a synchronous (blocking) search.
+     * Useful for non‑UI threads or batch operations.
+     * Also checks the cache before performing an actual search.
+     *
+     * @param query      the natural language search query
+     * @param maxResults maximum number of results to return
+     * @return the list of SearchResult objects
      */
     public List<SearchResult> searchSync(String query, int maxResults) {
         if (query == null || query.isBlank()) return List.of();
@@ -84,8 +107,11 @@ public final class SearchService {
     }
 
     /**
-     * Get autocomplete suggestions. Must return in <20ms.
-     * Uses a lightweight prefix cache.
+     * Provides autocomplete suggestions based on a prefix.
+     * The suggestions are derived from cached results and are returned quickly (<20ms).
+     *
+     * @param prefix the prefix to match against (minimum length 2)
+     * @return a list of suggested filenames, or an empty list if none found
      */
     public List<String> autocomplete(String prefix) {
         if (prefix == null || prefix.length() < 2) return List.of();
@@ -93,7 +119,8 @@ public final class SearchService {
     }
 
     /**
-     * Clear the search cache (e.g., when new files are indexed).
+     * Clears the entire search cache (both result and suggestion caches).
+     * Should be called when the index is updated or when new files are added/removed.
      */
     public void clearCache() {
         cache.clear();

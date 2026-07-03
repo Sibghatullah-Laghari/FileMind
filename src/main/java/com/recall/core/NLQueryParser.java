@@ -20,19 +20,37 @@ import java.util.regex.*;
 public class NLQueryParser {
 
     // ── result record ─────────────────────────────────────────────────────────
+    /**
+     * Represents the parsed query with all extracted filters and search parameters.
+     *
+     * @param luceneQuery          cleaned keyword(s) for Lucene, or {@code null} if none
+     * @param fileType             normalized file type key (e.g., "java", "pdf"), or {@code null}
+     * @param afterMs              lower bound for last modified date (milliseconds epoch), or {@code null}
+     * @param beforeMs             upper bound for last modified date (milliseconds epoch), or {@code null}
+     * @param minSizeBytes         minimum file size in bytes, or {@code null}
+     * @param maxSizeBytes         maximum file size in bytes, or {@code null}
+     * @param historyOnly          if {@code true}, query should use ActivityHistory instead of the main index
+     * @param timeOfDayAfterHour   hour of day (0‑23) for lower time‑of‑day filter, or {@code null}
+     * @param timeOfDayBeforeHour  hour of day (0‑23) for upper time‑of‑day filter, or {@code null}
+     * @param folderSearch         if {@code true}, the user is searching for folders/directories
+     */
     public record ParsedQuery(
-            String  luceneQuery,       // cleaned keyword(s) for Lucene
-            String  fileType,          // "java", "pdf", "image", etc. — null = any
-            Long    afterMs,           // modified-date lower bound (null = no bound)
-            Long    beforeMs,          // modified-date upper bound (null = no bound)
+            String  luceneQuery,
+            String  fileType,
+            Long    afterMs,
+            Long    beforeMs,
             Long    minSizeBytes,
             Long    maxSizeBytes,
-            boolean historyOnly,       // query ActivityHistory instead of Lucene
-            Integer timeOfDayAfterHour,  // 0–23, null = no filter
-            Integer timeOfDayBeforeHour, // 0–23, null = no filter
-            boolean folderSearch       // user wants folders, not files
+            boolean historyOnly,
+            Integer timeOfDayAfterHour,
+            Integer timeOfDayBeforeHour,
+            boolean folderSearch
     ) {
-        /** Returns the file extensions for this fileType, or empty array */
+        /**
+         * Returns the concrete file extensions that correspond to the normalized {@code fileType}.
+         *
+         * @return an array of extensions (without dots), or an empty array if {@code fileType} is null or unknown
+         */
         public String[] fileTypeExtensions() {
             if (fileType == null) return new String[0];
             return switch (fileType) {
@@ -57,7 +75,10 @@ public class NLQueryParser {
     }
 
     // ── type aliases ──────────────────────────────────────────────────────────
-    // Maps natural words → our internal type key
+    /**
+     * Maps natural language terms (e.g., "spring boot") to internal normalized file type keys.
+     * Multi-word entries must appear before their single‑word parts for correct matching.
+     */
     private static final Map<String, String> TYPE_ALIASES = new LinkedHashMap<>() {{
         // Must check multi-word first
         put("source code",    "code");
@@ -94,7 +115,9 @@ public class NLQueryParser {
         put("archive",        "zip");
     }};
 
-    // Stopwords to strip before sending to Lucene
+    /**
+     * Common stopwords that are removed from the final Lucene query to reduce noise.
+     */
     private static final Set<String> STOPWORDS = Set.of(
             "all","enlist","find","show","list","me","the","those","which","have",
             "with","that","are","were","where","what","is","get","give","search",
@@ -104,18 +127,35 @@ public class NLQueryParser {
     );
 
     // Pre-compiled regex patterns (avoid per-call Pattern.compile)
+    /** Pattern for "X days/hours/minutes ago" */
     private static final Pattern DAYS_AGO = Pattern.compile(
             "(\\d+)\\s*(day|hour|minute)s?\\s*ago");
+
+    /** Pattern for "last N days/hours/weeks" */
     private static final Pattern LAST_N = Pattern.compile(
             "last\\s+(\\d+)\\s*(day|hour|week)s?");
+
+    /** Pattern for "between 2am and 5pm" or "from 14:00 to 17:00" */
     private static final Pattern TIME_OF_DAY = Pattern.compile(
             "(?:between|from)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?\\s+(?:and|to)\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)");
+
+    /** Pattern for "larger than 5MB" */
     private static final Pattern LARGER = Pattern.compile(
             "(larger|bigger|more|greater)\\s+than\\s+(\\d+(?:\\.\\d+)?)\\s*(kb|mb|gb)");
+
+    /** Pattern for "smaller than 100KB" */
     private static final Pattern SMALLER = Pattern.compile(
             "(smaller|less|under)\\s+than\\s+(\\d+(?:\\.\\d+)?)\\s*(kb|mb|gb)");
 
     // ── main parse method ─────────────────────────────────────────────────────
+    /**
+     * Parses a natural language query string and returns a structured {@link ParsedQuery} object.
+     * Extraction is order‑sensitive; time and size filters are detected, removed from the text,
+     * and the remainder becomes the Lucene keyword query.
+     *
+     * @param raw the raw input string from the user
+     * @return a ParsedQuery containing all extracted filters and the cleaned keyword query
+     */
     public static ParsedQuery parse(String raw) {
         if (raw == null || raw.isBlank())
             return empty();
@@ -248,10 +288,22 @@ public class NLQueryParser {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Returns an empty (default) ParsedQuery with all fields set to null/false.
+     *
+     * @return an empty ParsedQuery instance
+     */
     private static ParsedQuery empty() {
         return new ParsedQuery(null, null, null, null, null, null, false, null, null, false);
     }
 
+    /**
+     * Converts a parsed hour and AM/PM modifier into a 24‑hour integer (0‑23).
+     *
+     * @param h    the hour (1‑12)
+     * @param ampm "am" or "pm", or {@code null} for 24‑hour format
+     * @return the hour in 0‑23 range
+     */
     private static int toHour(int h, String ampm) {
         if (ampm == null) return h; // assume 24h
         if ("pm".equals(ampm) && h < 12) return h + 12;
@@ -259,6 +311,13 @@ public class NLQueryParser {
         return h;
     }
 
+    /**
+     * Converts a numeric size with a unit (KB, MB, GB) into bytes.
+     *
+     * @param n    the numeric value
+     * @param unit the unit string (case‑insensitive)
+     * @return the size in bytes
+     */
     private static long toBytes(double n, String unit) {
         return switch (unit.toLowerCase()) {
             case "kb" -> (long)(n * 1024);

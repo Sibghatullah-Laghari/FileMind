@@ -18,10 +18,27 @@ import java.util.prefs.Preferences;
  *  - Pulsing animation: scales 1.1x every 4 seconds
  *  - Right-click menu: Open FileMind, Settings, Exit
  *  - Left-click: opens SearchPanel
+ *
+ * FIXME: This class is tightly coupled to SearchPanel via getInstance().open().
+ *        Should use a service/controller or EventBus to decouple UI components.
+ *
+ * FIXME: The position is saved to a file on every drag, which may cause disk I/O
+ *        performance issues. Consider using Preferences API or throttling saves.
+ *
+ * FIXME: The pulse animation is always running, even when the icon is not visible
+ *        or the app is idle, consuming CPU. Should pause when not needed.
+ *
+ * FIXME: The icon uses a hardcoded emoji font "Segoe UI Emoji" which may not be
+ *        available on all platforms. Consider using a fallback or rendering the
+ *        magnifying glass as a shape/icon.
+ *
+ * FIXME: The exit() method calls System.exit(0) directly, which is abrupt.
+ *        Should perform graceful shutdown (e.g., close Lucene index, save state).
  */
 public class FloatingIcon extends JWindow {
 
     // ── Constants ──────────────────────────────────────────────────────────
+    /** Size of the floating icon (square). */
     private static final int ICON_SIZE = 48;
     private static final Color COLOR_DEFAULT = new Color(0x1e293b);  // navy
     private static final Color COLOR_HOVER   = new Color(0x3b82f6);  // blue
@@ -31,12 +48,25 @@ public class FloatingIcon extends JWindow {
     private static final int PULSE_INTERVAL = 4000; // 4 seconds
 
     // ── State ──────────────────────────────────────────────────────────────
-    private float currentR, currentG, currentB;  // interpolated hover color
+    /** Interpolated RGB values for hover animation. */
+    private float currentR, currentG, currentB;
+
+    /** Drag offset for moving the icon. */
     private int dragOffsetX, dragOffsetY;
+
+    /** Timer for hover animation. */
     private Timer hoverTimer;
+
+    /** Timer for pulse animation. */
     private Timer pulseTimer;
+
+    /** Current pulse scale factor (1.0 to 1.1). */
     private float pulseScale = 1.0f;
+
+    /** Current step in hover animation (0..HOVER_STEPS). */
     private int hoverStep = 0;
+
+    /** Whether the mouse is currently hovering. */
     private boolean isHovering = false;
 
     // ─────────────────────────────────────────────────────────────────────
@@ -87,7 +117,7 @@ public class FloatingIcon extends JWindow {
             int w = getWidth();
             int h = getHeight();
 
-            // Apply pulse scale transform
+            // Apply pulse scale transform (centered)
             g2.translate(w / 2, h / 2);
             g2.scale(pulseScale, pulseScale);
             g2.translate(-w / 2, -h / 2);
@@ -263,7 +293,7 @@ public class FloatingIcon extends JWindow {
 
     // ── Actions ────────────────────────────────────────────────────────────
     private void openSearchPanel() {
-        SearchPanel.getInstance().open();
+        SearchPanel.getInstance().open(); // FIXME: Static singleton call – tight coupling
     }
 
     private void showSettings() {
@@ -272,7 +302,7 @@ public class FloatingIcon extends JWindow {
     }
 
     private void exitApp() {
-        // Flush Lucene index before exiting
+        // FIXME: This is an abrupt exit. Should perform graceful shutdown.
         if (pulseTimer != null) pulseTimer.stop();
         if (hoverTimer != null) hoverTimer.stop();
         System.exit(0);
@@ -285,9 +315,3 @@ public class FloatingIcon extends JWindow {
         return icon;
     }
 }
-
-
-
-
-
-

@@ -15,6 +15,10 @@ import java.util.stream.*;
  */
 public class NameSuggester {
 
+    /**
+     * Common English stopwords that are filtered out during term extraction
+     * to focus on meaningful content words.
+     */
     private static final Set<String> STOPWORDS = Set.of(
             "the","a","an","is","are","was","were","in","on","at","to","of","and",
             "or","for","with","this","that","it","be","as","by","from","not","but",
@@ -26,17 +30,24 @@ public class NameSuggester {
             "same","too","very","one","two","three","first","second","last","new"
     );
 
-    // Names so generic that suggesting them is meaningless
+    /**
+     * Base names that are considered too generic to be worth replacing.
+     * If the existing name matches one of these (or similar patterns), we try to suggest.
+     */
     private static final Set<String> GENERIC_BASE_NAMES = Set.of(
             "untitled","document","file","notes","new","copy","draft",
             "temp","tmp","test","backup","old","final","latest"
     );
 
     /**
-     * @param existingName  Current filename (with extension)
-     * @param contentSnippet  First ~500 chars of extracted text
-     * @param ext  File extension (without dot)
-     * @return  Suggested name like "spring-security-jwt.pdf", or null if no improvement
+     * Generates a suggested filename based on the most frequent meaningful terms
+     * found in the file's content.
+     *
+     * @param existingName   Current filename (including extension)
+     * @param contentSnippet First ~500 characters of extracted text
+     * @param ext            File extension without the dot
+     * @return A suggested name like "spring-security-jwt.pdf", or {@code null}
+     *         if no improvement can be made
      */
     public static String suggest(String existingName, String contentSnippet, String ext) {
         if (contentSnippet == null || contentSnippet.isBlank()) return null;
@@ -86,6 +97,13 @@ public class NameSuggester {
         return candidate;
     }
 
+    /**
+     * Determines whether a base filename (without extension) is generic and
+     * therefore a good candidate for replacement.
+     *
+     * @param baseName the filename without extension
+     * @return {@code true} if the name is considered generic, {@code false} otherwise
+     */
     private static boolean isGenericName(String baseName) {
         if (baseName == null || baseName.isBlank()) return true;
         String lower = baseName.toLowerCase().replaceAll("[^a-z]", "");

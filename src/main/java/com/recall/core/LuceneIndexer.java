@@ -30,18 +30,30 @@ import java.util.function.BiConsumer;
 public class LuceneIndexer {
 
     // ── tunables ──────────────────────────────────────────────────────────────
+    /** RAM buffer size for IndexWriter – balances indexing speed and memory usage. */
     private static final double  RAM_BUFFER_MB     = 32.0;   // sweet spot: speed vs RAM
+
+    /** Maximum number of characters extracted from a file's content for indexing. */
     private static final int     MAX_CONTENT_CHARS = 50_000; // ~50 KB of text per file
+
+    /** Files larger than this are skipped entirely to avoid performance issues. */
     private static final long    MAX_FILE_BYTES    = 500L * 1024 * 1024; // skip >500 MB
 
-    // Directories whose entire subtree we skip
+    /**
+     * Directory names that are skipped entirely (their entire subtree is ignored).
+     * Typically build directories, version control, caches, or system folders.
+     */
     private static final Set<String> SKIP_DIRS = Set.of(
             "node_modules", ".git", ".svn", "target", "build", ".gradle",
             "__pycache__", ".idea", ".vscode", ".cache", "dist", "out",
             ".Trash", "$RECYCLE.BIN", "System Volume Information"
     );
 
-    // Extensions whose content we never try to extract (binary, media)
+    /**
+     * File extensions for which we never attempt content extraction.
+     * These are typically binary, media, or archive formats where text extraction is
+     * either impossible or not useful.
+     */
     private static final Set<String> SKIP_CONTENT_EXTS = Set.of(
             "exe","dll","so","bin","iso","img","dmg","apk",
             "mp3","mp4","avi","mkv","mov","flac","wav","aac",
@@ -51,15 +63,33 @@ public class LuceneIndexer {
     );
 
     // ── state ─────────────────────────────────────────────────────────────────
+    /** Lucene directory where the index is stored on disk. */
     private static FSDirectory    directory;
+
+    /** IndexWriter for adding, updating, and deleting documents. */
     private static IndexWriter    writer;
+
+    /** Current searcher for executing queries. */
     private static IndexSearcher  searcher;
+
+    /** Current reader that provides a snapshot of the index. */
     private static DirectoryReader reader;
+
+    /** Flag indicating that the index has changed and the searcher should be refreshed. */
     private static final AtomicBoolean needsRefresh = new AtomicBoolean(false);
+
+    /** Lock for synchronizing reader replacement operations. */
     private static final Object   readerLock = new Object();
 
     // ── lifecycle ─────────────────────────────────────────────────────────────
 
+    /**
+     * Initializes the Lucene index at the specified directory.
+     * Creates the directory if it does not exist and opens or creates the index.
+     *
+     * @param indexDir the path to the index directory
+     * @throws IOException if an I/O error occurs during initialization
+     */
     public static void init(Path indexDir) throws IOException {
         Files.createDirectories(indexDir);
         directory = FSDirectory.open(indexDir);
@@ -71,6 +101,10 @@ public class LuceneIndexer {
         searcher = new IndexSearcher(reader);
     }
 
+    /**
+     * Closes all index resources (writer, reader, directory) safely.
+     * Should be called when the application shuts down.
+     */
     public static void close() {
         synchronized (readerLock) {
             try { if (writer != null) writer.close(); } catch (IOException ignored) {}
@@ -84,6 +118,9 @@ public class LuceneIndexer {
     /**
      * Index a single file.
      * Safe to call from multiple threads — IndexWriter is thread-safe.
+     * Uses {@link #updateDocument(Term, Document)} for atomic replacement.
+     *
+     * @param filePath the path to the file to index
      */
     public static void indexFile(Path filePath) {
         try {
@@ -162,6 +199,11 @@ public class LuceneIndexer {
         }
     }
 
+    /**
+     * Deletes a file from the index by its absolute path.
+     *
+     * @param filePath the path of the file to delete from the index
+     */
     public static void deleteFile(Path filePath) {
         try {
             writer.deleteDocuments(new Term("path", filePath.toAbsolutePath().toString()));
@@ -172,8 +214,12 @@ public class LuceneIndexer {
     }
 
     /**
-     * Walk a folder and index all files.
-     * callback(filePath, success) is called for each file — use to update UI status.
+     * Walks a folder recursively and indexes all eligible files.
+     * Provides a callback for each file to update progress or status.
+     *
+     * @param folder   the root folder to scan and index
+     * @param callback a BiConsumer called for each file with (path, success);
+     *                 may be null if no callback is needed
      */
     public static void indexFolder(Path folder, BiConsumer<Path, Boolean> callback) {
         try {
@@ -208,8 +254,11 @@ public class LuceneIndexer {
 
     /**
      * Main search entry point.
-     * @param parsed  Output from NLQueryParser
-     * @param maxResults  How many results to return
+     * Parses the query, applies filters, and returns results sorted by relevance or date.
+     *
+     * @param parsed     the parsed query object from {@link NLQueryParser}
+     * @param maxResults maximum number of results to return
+     * @return a list of {@link SearchResult} objects, ordered according to the query
      */
     public static List<SearchResult> search(NLQueryParser.ParsedQuery parsed, int maxResults) {
         List<SearchResult> results = new ArrayList<>();
@@ -301,12 +350,24 @@ public class LuceneIndexer {
         return results;
     }
 
+    /**
+     * Returns the total number of documents currently in the index.
+     *
+     * @return document count, or 0 if an error occurs
+     */
     public static int getDocumentCount() {
         try { return writer.getDocStats().numDocs; } catch (Exception e) { return 0; }
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
+    /**
+     * Determines whether a file should be skipped (not indexed).
+     * Skips hidden files, temporary files, and files located inside SKIP_DIRS.
+     *
+     * @param p the file path to check
+     * @return true if the file should be skipped, false otherwise
+     */
     private static boolean isSkippable(Path p) {
         // Skip hidden files
         String name = p.getFileName() != null ? p.getFileName().toString() : "";
@@ -322,6 +383,12 @@ public class LuceneIndexer {
         return false;
     }
 
+    /**
+     * Extracts the file extension from a filename.
+     *
+     * @param fileName the filename (may include path)
+     * @return the extension in lowercase, or "unknown" if none
+     */
     public static String getExtension(String fileName) {
         int dot = fileName.lastIndexOf('.');
         return (dot > 0 && dot < fileName.length() - 1)
@@ -329,6 +396,14 @@ public class LuceneIndexer {
                 : "unknown";
     }
 
+    /**
+     * Extracts symbol names (class, method, annotation names) from source code content.
+     * Uses simple regex patterns and limits the result to ~1000 characters.
+     *
+     * @param content the file content as a string
+     * @param ext     the file extension (used for language-specific patterns)
+     * @return a space-separated string of symbol names
+     */
     private static String extractSymbols(String content, String ext) {
         StringBuilder symbols = new StringBuilder();
 
@@ -359,6 +434,12 @@ public class LuceneIndexer {
         return symbols.toString().trim();
     }
 
+    /**
+     * Safely parses a string to a long, returning 0 if parsing fails.
+     *
+     * @param s the string to parse
+     * @return the parsed long value, or 0 if the string is null or invalid
+     */
     private static long parseLong(String s) {
         if (s == null) return 0;
         try { return Long.parseLong(s); } catch (NumberFormatException e) { return 0; }

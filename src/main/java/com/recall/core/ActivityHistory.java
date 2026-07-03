@@ -16,9 +16,16 @@ import java.util.*;
  */
 public class ActivityHistory {
 
+    /** Retention period for activity records: 3 days in milliseconds. */
     private static final long RETENTION_MS = 3L * 24 * 60 * 60 * 1000; // 3 days
 
-    /** Call this from MetadataDB.init() to ensure the table exists */
+    /**
+     * Creates the 'activity' table and its index if they do not exist.
+     * Should be called during database initialization (e.g., from MetadataDB.init()).
+     *
+     * @param conn the active database connection
+     * @throws SQLException if a database access error occurs
+     */
     public static void createTable(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute("""
@@ -34,8 +41,13 @@ public class ActivityHistory {
     }
 
     /**
-     * Record that the user opened a file.
+     * Records that the user opened a file.
      * Called every time they double-click a search result.
+     * The timestamp is rounded to the nearest hour to avoid excessive granularity
+     * while preserving time-of-day information.
+     *
+     * @param conn the active database connection
+     * @param path the absolute file path that was opened
      */
     public static void recordOpen(Connection conn, String path) {
         if (conn == null || path == null) return;
@@ -57,11 +69,19 @@ public class ActivityHistory {
     }
 
     /**
-     * Query files opened in a time range.
-     * @param afterMs   epoch millis lower bound (inclusive)
-     * @param beforeMs  epoch millis upper bound (inclusive), or Long.MAX_VALUE
-     * @param todAfterHour   time-of-day lower bound (0-23), or null
-     * @param todBeforeHour  time-of-day upper bound (0-23), or null
+     * Queries files opened within a specified time range, with optional time‑of‑day filtering.
+     * Results are limited to the most recent 200 distinct files, ordered by last open time descending.
+     *
+     * @param conn           the active database connection
+     * @param afterMs        lower bound of the time range in epoch milliseconds (inclusive)
+     * @param beforeMs       upper bound of the time range in epoch milliseconds (inclusive);
+     *                       use {@code 0} or {@code Long.MAX_VALUE} for no upper limit
+     * @param todAfterHour   optional hour of day (0‑23) for lower time‑of‑day filter;
+     *                       only files opened at or after this hour are included
+     * @param todBeforeHour  optional hour of day (0‑23) for upper time‑of‑day filter;
+     *                       only files opened at or before this hour are included
+     * @return a list of distinct file paths that satisfy the criteria,
+     *         ordered by the most recent opening time descending
      */
     public static List<String> query(
             Connection conn, long afterMs, long beforeMs,
@@ -103,7 +123,14 @@ public class ActivityHistory {
         return results;
     }
 
-    /** Most recently opened files — used for "Recent" section on home screen */
+    /**
+     * Retrieves the most recently opened files, intended for the "Recent" section on the home screen.
+     *
+     * @param conn   the active database connection
+     * @param limit  maximum number of file paths to return
+     * @return a list of distinct file paths, ordered by most recent opening time descending,
+     *         up to the specified limit
+     */
     public static List<String> recent(Connection conn, int limit) {
         List<String> results = new ArrayList<>();
         if (conn == null) return results;
@@ -122,6 +149,13 @@ public class ActivityHistory {
         return results;
     }
 
+    /**
+     * Deletes all activity records older than the retention period (3 days).
+     * Called automatically after each write operation to keep the table size bounded.
+     *
+     * @param conn the active database connection
+     * @throws SQLException if a database access error occurs
+     */
     private static void pruneOld(Connection conn) throws SQLException {
         long cutoff = Instant.now().toEpochMilli() - RETENTION_MS;
         try (PreparedStatement ps = conn.prepareStatement(

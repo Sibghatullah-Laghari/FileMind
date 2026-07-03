@@ -21,6 +21,31 @@ import java.nio.file.*;
  *  - Click: executes an OnExpandCallback to animate the search palette open
  *  - Draggable with position persistence
  *  - Right-click context menu
+ *
+ * FIXME: The hover scale animation is broken: `updateHoverScale()` is never called,
+ *        so the scale remains at 1.0. The `hoverScale` variable is updated only
+ *        via `targetHoverScale` but not animated.
+ *
+ * FIXME: The breathing and glow timers run continuously even when the launcher is
+ *        not visible, wasting CPU cycles. They should be paused when the window is
+ *        not shown or when the app is idle.
+ *
+ * FIXME: The glow effect uses 12 arcs with a fixed stroke, which may look jagged
+ *        and not smoothly interpolated. Consider using a gradient paint on the
+ *        border or a custom shape.
+ *
+ * FIXME: Mouse drag and click are conflated: releasing after a drag also triggers
+ *        the expand callback. Should track if drag occurred and only expand if no
+ *        significant movement.
+ *
+ * FIXME: The `showSettings()` method is a placeholder and does nothing. It should
+ *        either be implemented or removed.
+ *
+ * FIXME: The `setHovering` method is public but not used by any other class; it may
+ *        be intended for external control but is currently unused.
+ *
+ * FIXME: Exiting via System.exit(0) is abrupt and does not allow for graceful
+ *        shutdown of the indexer or other services.
  */
 public class FloatingLauncher extends JWindow {
 
@@ -47,11 +72,22 @@ public class FloatingLauncher extends JWindow {
     private static final Color ICON_COLOR = Color.WHITE;
 
     // ── State ──────────────────────────────────────────────────────────────
+    /** Interpolated background color components for hover transition. */
     private float currentBgR, currentBgG, currentBgB;
+
+    /** Current angle of the rotating glow effect (radians). */
     private float glowAngle = 0.0f;
+
+    /** Current scale factor for hover (should animate between 1.0 and 1.05). */
     private float hoverScale = 1.0f;
+
+    /** Target scale factor; set by mouse enter/exit. */
     private float targetHoverScale = 1.0f;
+
+    /** Whether the mouse is currently hovering over the launcher. */
     private boolean isHovering = false;
+
+    /** Drag offset for moving the launcher. */
     private int dragOffsetX, dragOffsetY;
 
     // Timers
@@ -59,7 +95,7 @@ public class FloatingLauncher extends JWindow {
     private Timer glowTimer;
     private Timer hoverTimer;
 
-    // Callback for expanding into the search palette
+    /** Callback invoked when the launcher is clicked (to expand the search palette). */
     private Runnable onExpandCallback;
 
     // ─────────────────────────────────────────────────────────────────────
@@ -97,11 +133,21 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Callback Setter ───────────────────────────────────────────────────
+    /**
+     * Sets the callback that will be invoked when the launcher is clicked.
+     * This is used to trigger the expansion of the search palette.
+     *
+     * @param callback the runnable to execute on click
+     */
     public void setOnExpandCallback(Runnable callback) {
         this.onExpandCallback = callback;
     }
 
     // ── Custom Panel ──────────────────────────────────────────────────────
+    /**
+     * Custom JPanel that paints the launcher's circular background, glow border,
+     * and inner shadow. The icon itself is a separate JLabel added on top.
+     */
     private class LauncherPanel extends JPanel {
         @Override
         protected void paintComponent(Graphics g) {
@@ -115,7 +161,7 @@ public class FloatingLauncher extends JWindow {
             int cy = h / 2;
             int radius = LAUNCHER_SIZE / 2;
 
-            // Apply hover scale transform
+            // Apply hover scale transform (FIXME: hoverScale is never animated)
             g2.translate(cx, cy);
             g2.scale(hoverScale, hoverScale);
             g2.translate(-cx, -cy);
@@ -152,6 +198,7 @@ public class FloatingLauncher extends JWindow {
             g2.fillOval(cx - radius, cy - radius, LAUNCHER_SIZE, LAUNCHER_SIZE);
         }
 
+        /** Helper to interpolate between two colors. */
         private Color interpolateColor(Color c1, Color c2, float t) {
             int r = (int) (c1.getRed() + (c2.getRed() - c1.getRed()) * t);
             int g = (int) (c1.getGreen() + (c2.getGreen() - c1.getGreen()) * t);
@@ -193,6 +240,7 @@ public class FloatingLauncher extends JWindow {
             public void mouseReleased(MouseEvent e) {
                 if (e.getButton() == MouseEvent.BUTTON1) {
                     // Trigger expand callback instead of opening panel directly
+                    // FIXME: This fires even after a drag; should check if drag occurred.
                     if (onExpandCallback != null) {
                         onExpandCallback.run();
                     }
@@ -212,6 +260,10 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Hover Color Transition ────────────────────────────────────────────
+    /**
+     * Animates the background color from the current value to the target color.
+     * Used for hover effect.
+     */
     private void startHoverColorTransition(Color targetColor) {
         if (hoverTimer != null && hoverTimer.isRunning()) {
             hoverTimer.stop();
@@ -249,6 +301,7 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Breathing Animation ───────────────────────────────────────────────
+    /** Starts a continuous opacity oscillation (breathing effect). */
     private void startBreathingAnimation() {
         breathingTimer = new Timer(50, e -> {
             long elapsed = System.currentTimeMillis() % BREATH_INTERVAL_MS;
@@ -261,6 +314,7 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Glow Rotation Animation ───────────────────────────────────────────
+    /** Starts the continuous rotation of the glow effect. */
     private void startGlowAnimation() {
         glowTimer = new Timer(50, e -> {
             long elapsed = System.currentTimeMillis() % GLOW_ROTATION_INTERVAL_MS;
@@ -271,6 +325,10 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Hover Scale Animation ─────────────────────────────────────────────
+    /**
+     * Updates the hover scale smoothly toward targetHoverScale.
+     * FIXME: This method is never called, so the scale animation does not work.
+     */
     private void updateHoverScale() {
         // Smoothed scale interpolation (runs in glow timer repaint)
         if (hoverScale < targetHoverScale) {
@@ -281,6 +339,7 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Position Persistence ──────────────────────────────────────────────
+    /** Restores the launcher's position from a config file, or defaults to bottom-right. */
     private void restorePosition() {
         Path configDir = Paths.get(System.getProperty("user.home"), ".filemind");
         Path posFile = configDir.resolve("launcher_pos.conf");
@@ -306,6 +365,7 @@ public class FloatingLauncher extends JWindow {
         savePosition(defaultX, defaultY);
     }
 
+    /** Saves the current position to a config file. */
     private void savePosition(int x, int y) {
         try {
             Path configDir = Paths.get(System.getProperty("user.home"), ".filemind");
@@ -316,6 +376,7 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Context Menu ──────────────────────────────────────────────────────
+    /** Shows the right-click context menu. */
     private void showContextMenu(int x, int y) {
         JPopupMenu menu = new JPopupMenu();
 
@@ -339,24 +400,31 @@ public class FloatingLauncher extends JWindow {
     }
 
     // ── Actions ───────────────────────────────────────────────────────────
+    /** Shows the settings dialog (currently a placeholder). */
     private void showSettings() {
-        // Future: integrate new SettingsDialog
+        // FIXME: Future integration with SettingsDialog
         // SettingsDialog dialog = new SettingsDialog(this);
         // dialog.setVisible(true);
     }
 
+    /** Stops all animation timers. */
     public void stopTimers() {
         if (breathingTimer != null) breathingTimer.stop();
         if (glowTimer != null) glowTimer.stop();
         if (hoverTimer != null) hoverTimer.stop();
     }
 
+    /** Exits the application abruptly. */
     private void exitApp() {
         stopTimers();
-        System.exit(0);
+        System.exit(0); // FIXME: Should perform graceful shutdown
     }
 
     // ── Public API ────────────────────────────────────────────────────────
+    /**
+     * Factory method to create and display the launcher.
+     * @return the created FloatingLauncher instance
+     */
     public static FloatingLauncher createAndShow() {
         FloatingLauncher launcher = new FloatingLauncher();
         launcher.setVisible(true);
@@ -364,13 +432,19 @@ public class FloatingLauncher extends JWindow {
     }
 
     /**
-     * Returns a Rectangle representing the launcher's current screen position and size.
-     * Used for calculating the expand animation into the search palette.
+     * Returns the launcher's current screen bounds, including the glow padding.
+     * Used to calculate the expand animation start position.
+     *
+     * @return a Rectangle representing the launcher's bounds
      */
     public Rectangle getLauncherBounds() {
         return new Rectangle(getX(), getY(), LAUNCHER_SIZE + GLOW_BORDER_WIDTH * 4, LAUNCHER_SIZE + GLOW_BORDER_WIDTH * 4);
     }
 
+    /**
+     * Externally sets the hover state (e.g., for keyboard shortcuts or test).
+     * FIXME: Currently unused; may be removed or properly integrated.
+     */
     public void setHovering(boolean hovering) {
         this.isHovering = hovering;
         if (hovering) {

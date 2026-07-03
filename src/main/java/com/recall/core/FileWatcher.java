@@ -19,24 +19,50 @@ import static java.nio.file.StandardWatchEventKinds.*;
  */
 public class FileWatcher {
 
+    /**
+     * Types of file system events that can be observed.
+     */
     public enum EventType { CREATE, MODIFY, DELETE }
 
+    /** The WatchService instance used for file system monitoring. */
     private static WatchService watchService;
+
+    /** The background thread that processes watch events. */
     private static Thread       watchThread;
+
+    /** Flag indicating whether the watcher is currently running. */
     private static volatile boolean running = false;
 
-    // Bounded queue: cap at 200 events to prevent memory spike on mass file creation
+    /**
+     * Thread pool for handling file events asynchronously.
+     * - Core pool size: 2 threads
+     * - Bounded queue (200) prevents memory spikes on mass file creation
+     * - DiscardOldestPolicy drops the oldest pending event when the queue is full,
+     *   prioritizing newer events
+     */
     private static final ThreadPoolExecutor eventExecutor = new ThreadPoolExecutor(
             2, 2, 0L, TimeUnit.MILLISECONDS,
             new LinkedBlockingQueue<>(200),
             new ThreadPoolExecutor.DiscardOldestPolicy()
     );
 
+    /**
+     * Set of directory names to skip during recursive registration and event filtering.
+     * These typically contain build artifacts, dependencies, or version control data.
+     */
     private static final java.util.Set<String> SKIP_DIRS = java.util.Set.of(
             "node_modules", ".git", ".svn", "target", "build", ".gradle",
             "__pycache__", ".idea", ".vscode", ".cache", "dist", "out"
     );
 
+    /**
+     * Starts the file watcher for the given root path.
+     * Registers the entire directory tree recursively and begins listening for events.
+     *
+     * @param rootPath the root directory to monitor
+     * @param callback a BiConsumer invoked for each event, receiving the event type and the affected path
+     * @throws IOException if the WatchService cannot be created or the root directory cannot be registered
+     */
     public static void start(Path rootPath, BiConsumer<EventType, Path> callback) throws IOException {
         if (running) return;
 
@@ -69,6 +95,7 @@ public class FileWatcher {
                     if (SKIP_DIRS.contains(name))
                         continue;
 
+                    // Submit the event for asynchronous processing
                     eventExecutor.submit(() -> {
                         try {
                             if (kind == ENTRY_CREATE) {
@@ -99,6 +126,13 @@ public class FileWatcher {
         watchThread.start();
     }
 
+    /**
+     * Recursively registers a directory and all its subdirectories with the WatchService.
+     * Skips directories that are hidden or in the SKIP_DIRS list.
+     *
+     * @param root the directory to start registration from
+     * @throws IOException if an I/O error occurs while traversing the tree
+     */
     private static void registerTree(Path root) throws IOException {
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
             @Override
@@ -120,6 +154,11 @@ public class FileWatcher {
         });
     }
 
+    /**
+     * Stops the file watcher gracefully.
+     * Interrupts the watching thread, shuts down the event executor with a timeout,
+     * and closes the WatchService.
+     */
     public static void stop() {
         running = false;
         if (watchThread != null) watchThread.interrupt();

@@ -20,6 +20,17 @@ import java.io.File;
  * For text/code: shows first lines (future enhancement).
  *
  * Dismiss: Space again, Escape, or click outside.
+ *
+ * FIXME: Uses hardcoded colors and sizes; does not respect theme changes.
+ * FIXME: Duplicates formatting logic from ResultFormatter (describeFileType, smartDate).
+ * FIXME: SvgIconProvider.getIcon() may not be defined; likely should use createLabel or another method.
+ * FIXME: ThemeManager class is not imported, so getFileTypeColor() may not compile.
+ * FIXME: Key listener on JWindow may not receive events if window loses focus; should add to content pane.
+ * FIXME: Does not show actual content preview for text/code files (future enhancement, but noted).
+ * FIXME: The infoGrid labels are accessed by hardcoded indices; fragile if layout changes.
+ * FIXME: Positioning is not managed; panel appears at default location, not centered relative to parent.
+ * FIXME: Does not handle window focus lost to auto-dismiss.
+ * FIXME: setAlwaysOnTop(true) may conflict with other always-on-top windows.
  */
 public class PreviewPanel extends JWindow {
 
@@ -42,6 +53,8 @@ public class PreviewPanel extends JWindow {
         buildUI();
 
         // Global key listener for dismiss
+        // FIXME: Key events may not be received if the window doesn't have focus;
+        //        should add listener to the content pane and request focus on show.
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
@@ -64,6 +77,7 @@ public class PreviewPanel extends JWindow {
                 int h = getHeight();
 
                 // Background (dark card)
+                // FIXME: Hardcoded color; should use DesignSystem or ThemeManager.
                 g2.setColor(new Color(15, 23, 42, 250));
                 g2.fillRoundRect(0, 0, w, h, CORNER_RADIUS, CORNER_RADIUS);
 
@@ -91,6 +105,7 @@ public class PreviewPanel extends JWindow {
                 int cx = (getWidth() - iconSize) / 2;
                 int cy = (getHeight() - iconSize) / 2;
 
+                // FIXME: ThemeManager is not imported; this will cause compilation error.
                 Color iconColor = ThemeManager.getFileTypeColor(currentResult.ext() != null ? currentResult.ext() : "");
 
                 // Background circle for icon
@@ -98,6 +113,7 @@ public class PreviewPanel extends JWindow {
                 g2.fillOval(cx - 8, cy - 8, iconSize + 16, iconSize + 16);
 
                 // Icon (FlatSVGIcon via SvgIconProvider)
+                // FIXME: SvgIconProvider.getIcon() may not exist; likely should be createLabel or another factory.
                 SvgIconProvider.getIcon("FILE_GENERIC", iconColor).paintIcon(this, g, cx, cy);
             }
         };
@@ -173,6 +189,7 @@ public class PreviewPanel extends JWindow {
 
         if (infoGrid != null) {
             Component[] comps = infoGrid.getComponents();
+            // FIXME: Hardcoded indices; if grid layout changes, this breaks.
             if (comps.length >= 8) {
                 // Kind
                 String kind = describeFileType(result.ext());
@@ -192,7 +209,7 @@ public class PreviewPanel extends JWindow {
         revalidate();
         repaint();
         setVisible(true);
-        requestFocus();
+        requestFocus(); // FIXME: This may not give focus to the window properly; should request focus on the content pane.
     }
 
     /**
@@ -214,6 +231,7 @@ public class PreviewPanel extends JWindow {
         return isVisible();
     }
 
+    // FIXME: Duplicates ResultFormatter.describeFileType() – should reuse to avoid inconsistency.
     private String describeFileType(String ext) {
         if (ext == null || ext.isEmpty()) return "Unknown";
         return switch (ext.toLowerCase()) {
@@ -236,6 +254,7 @@ public class PreviewPanel extends JWindow {
         };
     }
 
+    // FIXME: Duplicates ResultFormatter.smartDate() – should reuse.
     private String formatDate(long modifiedMs) {
         java.time.LocalDateTime dt = java.time.LocalDateTime.ofInstant(
                 java.time.Instant.ofEpochMilli(modifiedMs),
