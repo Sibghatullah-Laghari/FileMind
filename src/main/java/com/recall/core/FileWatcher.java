@@ -32,6 +32,7 @@ public class FileWatcher {
             new ThreadPoolExecutor.DiscardOldestPolicy()
     );
 
+    // Directories to skip entirely (build caches, version control, etc.)
     private static final java.util.Set<String> SKIP_DIRS = java.util.Set.of(
             "node_modules", ".git", ".svn", "target", "build", ".gradle",
             "__pycache__", ".idea", ".vscode", ".cache", "dist", "out"
@@ -41,7 +42,7 @@ public class FileWatcher {
         if (running) return;
 
         watchService = FileSystems.getDefault().newWatchService();
-        registerTree(rootPath);
+        registerTree(rootPath); // Recursively register all existing subdirectories
 
         running = true;
         watchThread = new Thread(() -> {
@@ -50,12 +51,12 @@ public class FileWatcher {
                 try {
                     key = watchService.take(); // blocks — zero CPU while idle
                 } catch (InterruptedException | ClosedWatchServiceException e) {
-                    break;
+                    break; // Shutdown requested
                 }
 
                 for (WatchEvent<?> event : key.pollEvents()) {
                     WatchEvent.Kind<?> kind = event.kind();
-                    if (kind == OVERFLOW) continue;
+                    if (kind == OVERFLOW) continue; // Ignore lost-event notifications
 
                     @SuppressWarnings("unchecked")
                     Path filename = ((WatchEvent<Path>) event).context();
@@ -69,6 +70,7 @@ public class FileWatcher {
                     if (SKIP_DIRS.contains(name))
                         continue;
 
+                    // Submit to bounded executor – older events dropped if queue full
                     eventExecutor.submit(() -> {
                         try {
                             if (kind == ENTRY_CREATE) {
@@ -99,13 +101,17 @@ public class FileWatcher {
         watchThread.start();
     }
 
+    /**
+     * Recursively registers the given directory and all its subdirectories
+     * (excluding SKIP_DIRS and hidden folders).
+     */
     private static void registerTree(Path root) throws IOException {
         Files.walkFileTree(root, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
                 String name = dir.getFileName() != null ? dir.getFileName().toString() : "";
                 if (SKIP_DIRS.contains(name) || name.startsWith("."))
-                    return FileVisitResult.SKIP_SUBTREE;
+                    return FileVisitResult.SKIP_SUBTREE; // Don't traverse into ignored dirs
                 try {
                     dir.register(watchService, ENTRY_CREATE, ENTRY_MODIFY, ENTRY_DELETE);
                 } catch (IOException ignored) {
@@ -115,19 +121,22 @@ public class FileWatcher {
             }
             @Override
             public FileVisitResult visitFileFailed(Path file, IOException exc) {
-                return FileVisitResult.CONTINUE;
+                return FileVisitResult.CONTINUE; // Ignore unreadable files
             }
         });
     }
 
+    /** Gracefully stops the watcher, drains pending events, and closes resources. */
     public static void stop() {
         running = false;
         if (watchThread != null) watchThread.interrupt();
+
         eventExecutor.shutdown();
         try {
             if (!eventExecutor.awaitTermination(2, TimeUnit.SECONDS))
-                eventExecutor.shutdownNow();
+                eventExecutor.shutdownNow(); // Force shutdown if timeout
         } catch (InterruptedException ignored) {}
+
         try {
             if (watchService != null) watchService.close();
         } catch (IOException ignored) {}
