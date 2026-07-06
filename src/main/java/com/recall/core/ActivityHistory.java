@@ -21,6 +21,7 @@ public class ActivityHistory {
     /** Call this from MetadataDB.init() to ensure the table exists */
     public static void createTable(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
+            // Table: path + timestamp bucket (hour), with open_count for aggregation
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS activity (
                     path        TEXT    NOT NULL,
@@ -29,6 +30,7 @@ public class ActivityHistory {
                     PRIMARY KEY (path, opened_at)
                 )
             """);
+            // Index for fast time-range pruning/querying
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_activity_time ON activity(opened_at)");
         }
     }
@@ -50,7 +52,7 @@ public class ActivityHistory {
             long hourBucket = (Instant.now().toEpochMilli() / 3_600_000) * 3_600_000;
             ps.setLong(2, hourBucket);
             ps.executeUpdate();
-            pruneOld(conn);
+            pruneOld(conn); // Auto-clean entries older than retention period
         } catch (SQLException e) {
             System.err.println("[HISTORY WRITE] " + e.getMessage());
         }
@@ -70,6 +72,7 @@ public class ActivityHistory {
         List<String> results = new ArrayList<>();
         if (conn == null) return results;
 
+        // Get distinct files in time range, grouped by path, most recent first
         String sql = """
             SELECT DISTINCT path, MAX(opened_at) as last_open
             FROM activity
@@ -86,7 +89,7 @@ public class ActivityHistory {
                     String path = rs.getString("path");
                     long ts     = rs.getLong("last_open");
 
-                    // Apply time-of-day filter post-query
+                    // Apply time-of-day filter post-query (not indexable)
                     if (todAfterHour != null || todBeforeHour != null) {
                         int hour = java.time.LocalDateTime
                                 .ofInstant(Instant.ofEpochMilli(ts), java.time.ZoneId.systemDefault())
@@ -122,6 +125,7 @@ public class ActivityHistory {
         return results;
     }
 
+    // Deletes records older than RETENTION_MS from current time
     private static void pruneOld(Connection conn) throws SQLException {
         long cutoff = Instant.now().toEpochMilli() - RETENTION_MS;
         try (PreparedStatement ps = conn.prepareStatement(
