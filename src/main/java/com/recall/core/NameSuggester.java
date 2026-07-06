@@ -15,6 +15,7 @@ import java.util.stream.*;
  */
 public class NameSuggester {
 
+    // Common stopwords to filter out from content (noise)
     private static final Set<String> STOPWORDS = Set.of(
             "the","a","an","is","are","was","were","in","on","at","to","of","and",
             "or","for","with","this","that","it","be","as","by","from","not","but",
@@ -26,7 +27,7 @@ public class NameSuggester {
             "same","too","very","one","two","three","first","second","last","new"
     );
 
-    // Names so generic that suggesting them is meaningless
+    // Names so generic that suggesting them is meaningless (e.g., "draft.docx")
     private static final Set<String> GENERIC_BASE_NAMES = Set.of(
             "untitled","document","file","notes","new","copy","draft",
             "temp","tmp","test","backup","old","final","latest"
@@ -41,7 +42,7 @@ public class NameSuggester {
     public static String suggest(String existingName, String contentSnippet, String ext) {
         if (contentSnippet == null || contentSnippet.isBlank()) return null;
 
-        // Only suggest for file types where content is meaningful text
+        // Only suggest for file types where content is meaningful text (skip images, binaries, etc.)
         Set<String> textTypes = Set.of("pdf","docx","doc","txt","md","java","py","js",
                 "ts","xml","json","yaml","yml","properties","html","css","sql","rst");
         if (!textTypes.contains(ext.toLowerCase())) return null;
@@ -52,10 +53,10 @@ public class NameSuggester {
                 : existingName;
         if (!isGenericName(baseName)) return null; // name already looks descriptive
 
-        // Use first 500 chars max
+        // Use first 500 chars max (performance & relevance)
         String snippet = contentSnippet.substring(0, Math.min(500, contentSnippet.length()));
 
-        // Tokenize: keep words 4+ chars
+        // Tokenize: keep words 4+ chars to avoid noise like "a", "it"
         Map<String, Integer> freq = new LinkedHashMap<>();
         Matcher m = Pattern.compile("[a-zA-Z]{4,}").matcher(snippet);
         while (m.find()) {
@@ -77,20 +78,23 @@ public class NameSuggester {
 
         if (topTerms.isEmpty()) return null;
 
+        // Build candidate: terms joined by dash + original extension
         String candidate = String.join("-", topTerms) + "." + ext;
 
         // Only suggest if meaningfully different from existing
         if (candidate.equalsIgnoreCase(existingName)) return null;
+        // Avoid suggesting shorter names unless existing is generic (prevents "abc.pdf" -> "a.pdf")
         if (candidate.length() < existingName.length() && !isGenericName(baseName)) return null;
 
         return candidate;
     }
 
+    // Heuristics to detect if the base name is too generic to keep
     private static boolean isGenericName(String baseName) {
         if (baseName == null || baseName.isBlank()) return true;
         String lower = baseName.toLowerCase().replaceAll("[^a-z]", "");
-        if (lower.length() < 4)  return true;  // "a", "1", etc.
-        if (lower.length() < 8)  return true;  // short = probably generic
+        if (lower.length() < 4)  return true;  // "a", "1", etc. – too short
+        if (lower.length() < 8)  return true;  // short = probably generic (e.g., "doc")
 
         // Contains a digit run → likely auto-generated: "document1", "img_20240315"
         if (baseName.matches(".*\\d{4,}.*")) return true;
