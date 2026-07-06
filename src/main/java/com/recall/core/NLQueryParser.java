@@ -94,7 +94,7 @@ public class NLQueryParser {
         put("archive",        "zip");
     }};
 
-    // Stopwords to strip before sending to Lucene
+    // Stopwords to strip before sending to Lucene (common noise)
     private static final Set<String> STOPWORDS = Set.of(
             "all","enlist","find","show","list","me","the","those","which","have",
             "with","that","are","were","where","what","is","get","give","search",
@@ -206,6 +206,7 @@ public class NLQueryParser {
         }
 
         // ── 6. strip noise words ───────────────────────────────────
+        // Tokenize and keep only meaningful keywords for Lucene
         String[] tokens = workingText.split("\\s+");
         StringBuilder cleanQ = new StringBuilder();
         for (String tok : tokens) {
@@ -248,6 +249,7 @@ public class NLQueryParser {
         return new ParsedQuery(null, null, null, null, null, null, false, null, null, false);
     }
 
+    // Convert 12-hour time (e.g., "2pm") to 24-hour int (14)
     private static int toHour(int h, String ampm) {
         if (ampm == null) return h; // assume 24h
         if ("pm".equals(ampm) && h < 12) return h + 12;
@@ -255,6 +257,7 @@ public class NLQueryParser {
         return h;
     }
 
+    // Convert human size (e.g., "5MB") to bytes
     private static long toBytes(double n, String unit) {
         return switch (unit.toLowerCase()) {
             case "kb" -> (long)(n * 1024);
