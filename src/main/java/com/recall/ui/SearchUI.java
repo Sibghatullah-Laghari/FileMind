@@ -53,17 +53,17 @@ public class SearchUI extends JFrame {
     private static final Font FONT_SECTION = new Font("Segoe UI", Font.BOLD,  11);
 
     // ── state ──────────────────────────────────────────────────────────────────
-    private Timer  debounceTimer;
-    private String activeFilter = "All";
+    private Timer  debounceTimer;         // Delays search until typing pauses
+    private String activeFilter = "All";  // Current filter button selection
     private List<SearchResult> currentResults = List.of();
 
     // ── widgets ────────────────────────────────────────────────────────────────
     private JTextField  searchField;
     private JPanel      filterBar;
-    private JPanel      resultsPanel;
+    private JPanel      resultsPanel;     // Container for result cards
     private JScrollPane resultsScroll;
     private JLabel      statusLabel;
-    private JLabel      countLabel;
+    private JLabel      countLabel;       // Shows result count or index size
 
     // ─────────────────────────────────────────────────────────────────────────
     public SearchUI() {
@@ -111,7 +111,7 @@ public class SearchUI extends JFrame {
         searchBar.setBackground(BG_MAIN);
         searchBar.setBorder(new EmptyBorder(14, 16, 8, 16));
 
-        // Icon
+        // Icon (magnifying glass)
         JLabel icon = new JLabel("🔍");
         icon.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
         icon.setPreferredSize(new Dimension(30, 40));
@@ -128,7 +128,7 @@ public class SearchUI extends JFrame {
                 new EmptyBorder(8, 12, 8, 12)
         ));
 
-        // Placeholder text
+        // Placeholder: show recent when empty
         searchField.addFocusListener(new FocusAdapter() {
             @Override public void focusGained(FocusEvent e) { repaint(); }
             @Override public void focusLost(FocusEvent e) {
@@ -182,6 +182,7 @@ public class SearchUI extends JFrame {
         btn.setFont(FONT_FILTER);
         btn.setFocusable(false);
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        // Initially set "All" as active
         updateFilterStyle(btn, label.equals("All") && activeFilter.equals("All"));
 
         btn.addActionListener(e -> {
@@ -198,6 +199,7 @@ public class SearchUI extends JFrame {
         return btn;
     }
 
+    // Sets active (blue) vs inactive (grey) style for filter buttons
     private void updateFilterStyle(JButton btn, boolean active) {
         if (active) {
             btn.setBackground(ACCENT);
@@ -444,7 +446,7 @@ public class SearchUI extends JFrame {
         centerPanel.add(Box.createVerticalStrut(2));
         centerPanel.add(pathLabel);
 
-        // Name suggestion row
+        // Name suggestion row (only if suggestion exists)
         if (r.suggestedName() != null) {
             JPanel suggestRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
             suggestRow.setBackground(BG_CARD);
@@ -483,7 +485,7 @@ public class SearchUI extends JFrame {
         metaPanel.add(dateLabel);
         card.add(metaPanel, BorderLayout.EAST);
 
-        // ── hover effect ───────────────────────────────────────────
+        // ── hover effect + click handling ──────────────────────────
         card.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) {
                 card.setBackground(BG_HOVER);
@@ -533,7 +535,7 @@ public class SearchUI extends JFrame {
 
     // ── file actions ──────────────────────────────────────────────────────────
     private void openFile(SearchResult r) {
-        // Record in history
+        // Record in history (for recent files / activity queries)
         ActivityHistory.recordOpen(MetadataDB.getConnection(), r.path());
 
         try {
@@ -599,7 +601,7 @@ public class SearchUI extends JFrame {
 
         if (choice == JOptionPane.YES_OPTION) {
             if (original.renameTo(renamed)) {
-                nameLabel.setText(r.suggestedName());
+                nameLabel.setText(r.suggestedName()); // Update UI
                 JOptionPane.showMessageDialog(this, "Renamed successfully.", "Done", JOptionPane.INFORMATION_MESSAGE);
             } else {
                 JOptionPane.showMessageDialog(this, "Rename failed — file may be in use.",
