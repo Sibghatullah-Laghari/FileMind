@@ -1,6 +1,6 @@
 # 🧠 FileMind
 
-> Your computer deserves a photographic memory.
+> Give your computer a memory that never forgets.
 
 [![Java](https://img.shields.io/badge/Java-21-red?logo=openjdk)](https://adoptium.net/)
 [![Memory](https://img.shields.io/badge/RAM-<100MB-brightgreen)](https://github.com/)
@@ -9,40 +9,40 @@
 [![Parsing](https://img.shields.io/badge/Parsing-Tika-orange)](https://tika.apache.org/)
 [![Status](https://img.shields.io/badge/Status-Building...-yellow)](https://github.com/)
 
-**FileMind** is a desktop application that turns your entire computer into a searchable knowledge base. Think *Google*, but for your own files, PDFs, code, screenshots, and notes. Type a word, hit `Ctrl+Space`, and get results in milliseconds—**no cloud, no boot lag, no heavy RAM**.
+**FileMind** is a desktop search application that transforms your computer into a searchable personal knowledge library. Similar to *Google* for your own files, it lets you search PDFs, source code, documents, screenshots, and notes in milliseconds using a simple `Ctrl+Space` shortcut—**without relying on the cloud or consuming excessive system resources.**
 
-It runs silently in your system tray, indexes files in the background, and reads *inside* your documents. Built for developers, writers, and digital hoarders who are tired of digging through folders.
+The application operates quietly from the system tray, continuously indexes files in the background, and searches the contents of documents instead of only their names. It is designed for developers, students, writers, and anyone who manages a large collection of digital files.
 
 ---
 
 ## ✨ Key Features
 
-- ⚡ **Blazing Fast Search** – Apache Lucene returns results in milliseconds, even on old laptops.
-- 📂 **Reads Inside Files** – Extracts text from 1000+ formats: PDF, Word, Excel, PowerPoint, HTML, ZIP, code (`.java`, `.py`, `.xml`).
-- 🖥️ **Always On** – System tray icon + global shortcut (`Ctrl+Space`) brings up search from anywhere.
-- 🪶 **Lightweight** – Pure Java, no Spring Boot overhead. Sits at ~**70–90 MB RAM** during normal use.
-- 🔄 **Real-Time Indexing** – Java WatchService detects new, modified, or deleted files instantly. No manual re-scans.
-- 🔒 **100% Offline** – Your data never leaves your machine. Privacy-first.
-- 🖼️ **OCR Ready** (Phase 4) – Extracts text from screenshots and images via Tesseract.
-- 🧠 **AI Powered** (Future) – Local LLMs (Ollama) for natural language queries like *"find that JWT project from last week."*
+- ⚡ **High-Speed Search** – Apache Lucene delivers search results in milliseconds, even on modest hardware.
+- 📂 **Content-Aware Search** – Extracts text from over 1,000 file formats including PDF, Word, Excel, PowerPoint, HTML, ZIP archives, and source code (`.java`, `.py`, `.xml`).
+- 🖥️ **Background Operation** – Runs from the system tray with a global `Ctrl+Space` shortcut for instant access.
+- 🪶 **Resource Efficient** – Built with pure Java and avoids unnecessary framework overhead, typically using **70–90 MB of RAM**.
+- 🔄 **Automatic File Monitoring** – Java WatchService detects newly created, updated, and removed files, keeping the search index synchronized automatically.
+- 🔒 **Privacy Focused** – All indexing and searching are performed locally. Your files remain on your own computer.
+- 🖼️ **OCR Support** *(Phase 4)* – Planned image and screenshot text extraction using Tesseract OCR.
+- 🧠 **AI Search** *(Future)* – Planned integration with local LLMs through Ollama for natural language search queries such as *"find the JWT project I worked on last week."*
 
 ---
 
-## 🧩 Tech Stack
+## 🧩 Technology Stack
 
-| Technology | Role | What it does |
+| Technology | Role | Description |
 | :--- | :--- | :--- |
-| **Apache Lucene** | Search Engine | The core brain. Indexes text and returns results instantly. Used by Elasticsearch internally. Tiny footprint (~5 MB jar). |
-| **Apache Tika** | Content Extractor | Reads inside 1000+ file types (PDF, DOCX, XLSX, PPTX, HTML, ZIP) and extracts pure text for indexing. |
-| **Java WatchService** | File Watcher | Built into Java. Detects file system changes (create/modify/delete) in real-time. Triggers incremental indexing. |
-| **SQLite** | Metadata DB | Ultra-lightweight single-file database. Stores file paths, metadata, tags, and last-indexed timestamps. |
-| **Java Swing** | Desktop GUI | Clean, native-looking interface for the search bar, results panel, and settings. |
-| **Java SystemTray** | Tray Icon | Places the app icon in the system taskbar (like Grammarly or Dropbox). |
-| **Tess4J (Tesseract)** | OCR Engine | (Phase 4) Converts images/screenshots to searchable text. Runs as a background job to keep the UI snappy. |
-| **Ollama** | Local AI | (Phase 5) Runs small LLMs (Gemma 2B, Phi-3 Mini) offline for semantic/natural language search. |
+| **Apache Lucene** | Search Engine | Provides high-performance indexing and full-text search with a minimal memory footprint. |
+| **Apache Tika** | Content Extraction | Extracts searchable text from more than 1,000 supported document formats, including PDF, Office documents, HTML, ZIP archives, and more. |
+| **Java WatchService** | File Monitoring | Watches the file system for create, modify, and delete events to enable automatic incremental indexing. |
+| **SQLite** | Metadata Storage | Lightweight embedded database used to store file metadata, indexing information, and tags. |
+| **Java Swing** | Desktop Interface | Powers the application's graphical interface, including the search window, results list, and settings screens. |
+| **Java SystemTray** | System Integration | Displays the application in the operating system tray for quick access and background execution. |
+| **Tess4J (Tesseract)** | OCR Engine | *(Phase 4)* Extracts searchable text from images and screenshots while running in the background. |
+| **Ollama** | Local AI Integration | *(Phase 5)* Enables offline semantic search using lightweight local language models such as Gemma 2B and Phi-3 Mini. |
 
 ---
 
 ## 🏗️ Architecture & Project Structure
 
-No Spring Boot. No web server. Just **pure Java** with modular packages to keep it lean and fast.
+FileMind is built entirely with **pure Java** and follows a modular package structure instead of relying on Spring Boot or a web server. This approach keeps the application lightweight, responsive, and easy to maintain while allowing individual components to evolve independently.
