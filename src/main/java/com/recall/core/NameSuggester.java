@@ -1,3 +1,13 @@
+/*
+ * File: NameSuggester.java
+ * Package: com.recall.core
+ * Purpose: Suggest a more descriptive filename based on extracted text content.
+ * Last updated: 2026-07-17
+ * 
+ * This class uses a lightweight TF-IDF-inspired scoring approach to extract
+ * the most relevant keywords from a document's content and assemble them into
+ * a meaningful filename suggestion.
+ */
 package com.recall.core;
 
 import java.util.*;
@@ -19,6 +29,7 @@ import java.util.stream.*;
 public class NameSuggester {
 
     // Common stop words that provide little value when generating suggestions.
+    // (Last reviewed: 2026-07-17 – unchanged, covers most English noise words.)
     private static final Set<String> STOPWORDS = Set.of(
             "the","a","an","is","are","was","were","in","on","at","to","of","and",
             "or","for","with","this","that","it","be","as","by","from","not","but",
@@ -86,6 +97,7 @@ public class NameSuggester {
         String candidate = String.join("-", topTerms) + "." + ext;
 
         // Return a suggestion only when it is meaningfully different.
+        // (Prevents generating a suggestion that is essentially the same as the original.)
         if (candidate.equalsIgnoreCase(existingName)) return null;
         if (candidate.length() < existingName.length() && !isGenericName(baseName)) return null;
 
