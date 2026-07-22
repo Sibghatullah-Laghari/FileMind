@@ -19,7 +19,7 @@ mvn clean package
 java -jar ....
 
 ## IDE Setup
-
+.
 IntelliJ
 VS Code
 
