@@ -6,11 +6,11 @@
 - Maven 3.9+
 - Windows/Linux
 
-## Clone Repository
+## Clone Repository.
 
 git clone ...
 
-## Build
+## Build.
 
 mvn clean package
 
@@ -18,11 +18,11 @@ mvn clean package
 
 java -jar ....
 
-## IDE Setup
+## IDE Setup.
 .
 IntelliJ
 VS Code
 
-## Troubleshooting
+## Troubleshooting.
 
 .
