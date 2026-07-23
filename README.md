@@ -16,7 +16,7 @@ The application operates quietly from the system tray, continuously indexes file
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features.
 
 - ⚡ **High-Speed Search** – Apache Lucene delivers search results in milliseconds, even on modest hardware.
 - 📂 **Content-Aware Search** – Extracts text from over 1,000 file formats including PDF, Word, Excel, PowerPoint, HTML, ZIP archives, and source code (`.java`, `.py`, `.xml`).
@@ -31,7 +31,7 @@ The application operates quietly from the system tray, continuously indexes file
 
 ---
 
-## 🧩 Technology Stack
+## 🧩 Technology Stack.
 
 | Technology | Role | Description |
 | :--- | :--- | :--- |
@@ -48,7 +48,7 @@ The application operates quietly from the system tray, continuously indexes file
 
 ---
 
-## 🏗️ Architecture & Project Structure
+## 🏗️ Architecture & Project Structure.
 
 FileMind is built entirely with **pure Java** and follows a modular package structure instead of relying on Spring Boot or a web server. This approach keeps the application lightweight, responsive, and easy to maintain while allowing individual components to evolve independently.
 
