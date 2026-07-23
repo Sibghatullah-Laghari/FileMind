@@ -7,7 +7,7 @@
 
 ## 🔍 Smart Search:-
 
-Search files instantly with sub‑millisecond response times.
+Search files instantly with sub‑millisecond response times..
 
 - **Supported formats:** PDF, DOCX, DOC, XLSX, CSV, Java, Python, JavaScript, and many more via Apache Tika.
 - **Fuzzy matching:** Handles typos and partial matches automatically.
@@ -75,7 +75,7 @@ Describe what you're looking for in plain English.
 
 ---
 
-## 📌 Developer Notes (added 2026-07-16)..
+## 📌 Developer Notes (added 2026-07-16)...
 
 - **Extensibility:** The `Parser` interface in `com.filemind.parser` allows you to add custom parsers for new file types – simply implement the interface and register it in `ParserRegistry`.
 - **Index location:** The Lucene index is stored in `~/.filemind/index/`. You can safely delete it to force a full re‑index (the application will rebuild it on next startup).
@@ -84,4 +84,4 @@ Describe what you're looking for in plain English.
 
 ---
 
-*This document is maintained alongside the code. For feature requests, please open an issue in the repository.*
+*This document is maintained alongside the code. For feature requests, please open an issue in the repository..*
