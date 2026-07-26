@@ -19,7 +19,7 @@ The application operates quietly from the system tray, continuously indexes file
 ## ✨ Key Features.
 
 - ⚡ **High-Speed Search** – Apache Lucene delivers search results in milliseconds, even on modest hardware.
-- 📂 **Content-Aware Search** – Extracts text from over 1,000 file formats including PDF, Word, Excel, PowerPoint, HTML, ZIP archives, and source code (`.java`, `.py`, `.xml`).
+- 📂 **Content-Aware Search** – Extracts text from over 1,000 file formats including PDF, Word, Excel, PowerPoint, HTML, ZIP archives, and source code (`.java`, `.py`, `.xml`)..
 - 🖥️ **Background Operation** – Runs from the system tray with a global `Ctrl+Space` shortcut for instant access.
 - 🪶 **Resource Efficient** – Built with pure Java and avoids unnecessary framework overhead, typically using **70–90 MB of RAM**.
 - 🔄 **Automatic File Monitoring** – Java WatchService detects newly created, updated, and removed files, keeping the search index synchronized automatically.
