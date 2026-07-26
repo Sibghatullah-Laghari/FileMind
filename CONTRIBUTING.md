@@ -1,7 +1,7 @@
 # Contribution Workflow – GitHub Standard
 
 > 📅 **Updated:** 2026-07-16  
-> 📌 **Purpose:** This guide outlines the standard Git/GitHub workflow for contributing to this repository. Follow these steps to submit changes smoothly.
+> 📌 **Purpose:** This guide outlines the standard Git/GitHub workflow for contributing to this repository. Follow these steps to submit changes smoothly..
 
 ---
 
