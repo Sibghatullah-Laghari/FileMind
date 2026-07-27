@@ -23,6 +23,6 @@ java -jar ....
 IntelliJ
 VS Code
 
-## Troubleshooting..
+## Troubleshooting...
 
 .
