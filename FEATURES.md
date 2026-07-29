@@ -14,7 +14,7 @@ Search files instantly with sub‑millisecond response times..
 - **Wildcard support:** Use `*` and `?` for flexible search patterns.
 - **Result highlighting:** Matching terms are highlighted in the preview snippet.
 
-> 💡 *Tip:* Try typing partial file names – the search engine suggests completions as you type..
+> 💡 *Tip:* Try typing partial file names – the search engine suggests completions as you type...
 
 ---
 
