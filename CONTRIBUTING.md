@@ -5,7 +5,7 @@
 
 ---
 
-## 🔄 Workflow Overview:-
+## 🔄 Workflow Overview
 
 ```text
    ┌─────────┐
