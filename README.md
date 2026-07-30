@@ -63,4 +63,3 @@ filemind/
 ├── src/main/resources/
 ├── pom.xml            # Maven build configuration
 └── README.md          # This file
-...
