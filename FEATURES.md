@@ -5,7 +5,7 @@
 
 ---
 
-## 🔍 Smart Search:-
+## 🔍 Smart Search
 
 Search files instantly with sub‑millisecond response times..
 .
