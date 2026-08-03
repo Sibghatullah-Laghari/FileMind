@@ -9,7 +9,7 @@
 
 Search files instantly with sub‑millisecond response times..
 .
-- **Supported formats:** PDF, DOCX, DOC, XLSX, CSV, Java, Python, JavaScript, and many more via Apache Tika..
+- **Supported formats:** PDF, DOCX, DOC, XLSX, CSV, Java, Python, JavaScript, and many more via Apache Tika.
 - **Fuzzy matching:** Handles typos and partial matches automatically.
 - **Wildcard support:** Use `*` and `?` for flexible search patterns.
 - **Result highlighting:** Matching terms are highlighted in the preview snippet.
