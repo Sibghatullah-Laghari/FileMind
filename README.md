@@ -50,7 +50,7 @@ The application operates quietly from the system tray, continuously indexes file
 
 ## 🏗️ Architecture & Project Structure.
 
-FileMind is built entirely with **pure Java** and follows a modular package structure instead of relying on Spring Boot or a web server. This approach keeps the application lightweight, responsive, and easy to maintain while allowing individual components to evolve independently..
+FileMind is built entirely with **pure Java** and follows a modular package structure instead of relying on Spring Boot or a web server. This approach keeps the application lightweight, responsive, and easy to maintain while allowing individual components to evolve independently.
 
 ```text
 filemind/
