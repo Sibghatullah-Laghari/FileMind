@@ -16,7 +16,7 @@ mvn clean package
 
 ## Run
 
-java -jar ....
+java -jar 
 
 ## IDE Setup.
 .
