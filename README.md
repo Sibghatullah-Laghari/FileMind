@@ -62,5 +62,5 @@ filemind/
 │   └── store/         # SQLite metadata handling
 ├── src/main/resources/
 ├── pom.xml            # Maven build configuration
-└── README.md          # This file
+└── README.md          # This file..
 .
