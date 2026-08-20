@@ -24,7 +24,3 @@ IntelliJ
 VS Code
 
 ## Troubleshooting
-
-...
-
-....
