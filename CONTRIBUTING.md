@@ -35,4 +35,6 @@
         ▼
    ┌─────────┐
    │   PR    │  (open a Pull Request for review)
-   └────────
+   └────────--
+
+...
