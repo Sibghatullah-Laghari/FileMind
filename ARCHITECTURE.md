@@ -1,6 +1,6 @@
 # System Architecture – Document Search Engine
 
-> **📅 Updated:** 2026-07-16  
+> **📅 Updated:** 2026-sept-2 
 > **📌 Purpose:** This document describes the high‑level architecture of the document search engine, from user interface down to the underlying file system.
 
 ---
@@ -42,4 +42,3 @@
 │                       File System                          │
 │   (Physical storage – documents, PDFs, Word files, etc.)   │
 └─────────────────────────────────────────────────────────────┘
-....
