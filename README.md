@@ -42,7 +42,6 @@ The application operates quietly from the system tray, continuously indexes file
 | **Java Swing** | Desktop Interface | Powers the application's graphical interface, including the search window, results list, and settings screens. |
 | **Java SystemTray** | System Integration | Displays the application in the operating system tray for quick access and background execution. |
 | **Tess4J (Tesseract)** | OCR Engine | *(Phase 4)* Extracts searchable text from images and screenshots while running in the background. |
-| **Ollama** | Local AI Integration | *(Phase 5)* Enables offline semantic search using lightweight local language models such as Gemma 2B and Phi-3 Mini. |
 
 > 📌 *Why pure Java?* – We chose vanilla Java (without Spring Boot) to keep the application lightweight (~15MB JAR), reduce startup time, and avoid memory overhead from dependency injection containers.
 
@@ -63,5 +62,3 @@ filemind/
 ├── src/main/resources/
 ├── pom.xml            # Maven build configuration
 └── README.md          # This file..
-
-....
