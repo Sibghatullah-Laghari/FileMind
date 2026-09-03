@@ -6,7 +6,6 @@
  * 
  * This class uses a lightweight TF-IDF-inspired scoring approach to extract
  * the most relevant keywords from a document's content and assemble them into
- * a meaningful filename suggestion.
  */
 package com.recall.core;
 
