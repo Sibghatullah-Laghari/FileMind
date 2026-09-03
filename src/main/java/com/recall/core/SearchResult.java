@@ -10,7 +10,6 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Immutable result object returned from LuceneIndexer.search().
- * Contains everything the UI needs — no further DB lookups required.
  */
 public record SearchResult(
         String path,          // Full file system path
