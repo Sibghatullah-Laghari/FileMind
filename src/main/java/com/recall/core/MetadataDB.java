@@ -6,7 +6,6 @@ import java.sql.*;
  * SQLite metadata store.
  * Persists file metadata and activity history.
  * Uses a single shared connection with WAL mode enabled to support
- * concurrent reads during background write operations.
  */
 public class MetadataDB {
 
