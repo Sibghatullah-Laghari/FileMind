@@ -12,7 +12,7 @@ import java.util.*;
  * Used for queries like:
  *   "files I worked on yesterday"
  *   "what was I doing 2 days ago"
- *   "files opened between 2am and 5pm"
+ *  
  */
 public class ActivityHistory {
 
