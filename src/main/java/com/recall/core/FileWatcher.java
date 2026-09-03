@@ -14,7 +14,6 @@ import static java.nio.file.StandardWatchEventKinds.*;
  * Improvements:
  *  - Newly created directories are registered recursively
  *  - Event queue is capped at 200 items to provide backpressure
- *  - Hidden files and common build directories are filtered before processing
  *  - Graceful shutdown with a timeout for pending tasks
  */
 public class FileWatcher {
