@@ -25,7 +25,6 @@ import java.util.function.BiConsumer;
  *  - Tika used for full content extraction (PDF, DOCX, TXT, Java, etc.)
  *  - isSkippable() skips node_modules, .git, target, build, etc.
  *  - Content truncated to first 50 000 chars (configurable)
- *  - Extension + size stored as DocValues for fast filter queries
  */
 public class LuceneIndexer {
 
