@@ -15,7 +15,6 @@ import java.util.regex.*;
  *  "images larger than 5MB"
  *  "find folder where whatsapp images are stored"
  *  "code files modified in last 3 days"
- *  "spring boot project files"
  */
 public class NLQueryParser {
 
