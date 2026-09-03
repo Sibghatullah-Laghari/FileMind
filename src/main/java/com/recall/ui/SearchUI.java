@@ -25,7 +25,7 @@ import java.util.List;
  *  - Status bar with index count + indexing progress
  *  - Keyboard nav: arrow keys move through results, Enter opens file
  *  - Right-click context menu: Open / Open folder / Copy path / Rename to suggested
- *  - Double-click result → open file, record in ActivityHistory
+ *  - History
  */
 public class SearchUI extends JFrame {
 
