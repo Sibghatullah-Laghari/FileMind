@@ -24,7 +24,6 @@ import java.util.function.BiConsumer;
  *  - updateDocument() handles delete+insert atomically — no manual delete needed
  *  - Tika used for full content extraction (PDF, DOCX, TXT, Java, etc.)
  *  - isSkippable() skips node_modules, .git, target, build, etc.
- *  - Content truncated to first 50 000 chars (configurable)
  */
 public class LuceneIndexer {
 
