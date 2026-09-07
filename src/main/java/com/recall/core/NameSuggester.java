@@ -22,8 +22,7 @@ import java.util.stream.*;
  *
  * Examples:
  *   "screenshot(17).png"  → no suggestion (image content cannot be analyzed)
- *   "notes.pdf"           → "spring-security-jwt-authentication.pdf"
- *   "Untitled1.docx"      → "machine-learning-linear-regression.docx"
+ *   "notes.pdf"           → "spring-security-jwt-authentication.pdf
  */
 public class NameSuggester {
 
