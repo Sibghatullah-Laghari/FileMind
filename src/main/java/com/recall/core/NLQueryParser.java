@@ -14,7 +14,6 @@ import java.util.regex.*;
  *  "files between 2am and 5pm"
  *  "images larger than 5MB"
  *  "find folder where whatsapp images are stored"
- *  "code files modified in last 3 days"
  */
 public class NLQueryParser {
 
