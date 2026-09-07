@@ -17,7 +17,6 @@ import java.util.concurrent.*;
  *  - Bounded ThreadPoolExecutor (4 threads, queue cap 500) — no unbounded queue
  *  - Tray icon with global Ctrl+Space hotkey simulation
  *  - Clean shutdown hook (flushes index on exit)
- *  - JVM heap limited to 128 MB via launch script (add -Xmx128m to your run config)
  */
 public class Main {
 
