@@ -20,7 +20,6 @@ public record SearchResult(
         String suggestedName, // Rename suggestion, null if already good
         float  score          // Lucene relevance score
 ) {
-    // Date formatter: e.g., "15 Jul 2026  14:30"
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("dd MMM yyyy  HH:mm");
 
