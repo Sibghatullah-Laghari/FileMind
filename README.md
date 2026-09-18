@@ -63,7 +63,3 @@ filemind/
 ├── pom.xml            # Maven build configuration
 └── README.md          # This file
 
-//////
-.......
-.....
-///////
