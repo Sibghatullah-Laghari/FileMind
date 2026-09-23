@@ -1,4 +1,4 @@
-# Setup Guide
+# Setup Guide:
 
 ## Requirements
 
@@ -22,10 +22,4 @@ java -jar
 .
 IntelliJ
 VS Code
-
-///
-.....
-///
 .
-
-//.
