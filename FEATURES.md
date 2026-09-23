@@ -1,6 +1,6 @@
 # Features – FileMind
 
-> 📅 **Last updated:** 2026-09-10  
+> 📅 **Last updated:** 2026-09-23  
 > ✅ **Status:** Active development – core features are production-ready.
 
 ---
