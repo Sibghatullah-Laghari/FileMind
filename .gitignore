@@ -1,5 +1,5 @@
 # ==========================================
-# 1. Environment & Sensitive Data (CRITICAL)
+# 1. Environment & Sensitive Data (CRITICAL.)
 # ==========================================
 # Never commit credentials, tokens, or local configurations
 .env
