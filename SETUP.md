@@ -22,7 +22,3 @@ java -jar
 .
 IntelliJ
 VS Code
-.
-
-
-..........
