@@ -74,7 +74,7 @@ Describe what you're looking for in plain English.
 | 7 | **Cross‑device Sync** – Optional encrypted sync across multiple machines. | 📝 Under consideration | TBD |
 
 ---
-
+......
 ## 📌 Developer Notes (added 2026-07-16).
 
 - **Extensibility:** The `Parser` interface in `com.filemind.parser` allows you to add custom parsers for new file types – simply implement the interface and register it in `ParserRegistry`.
