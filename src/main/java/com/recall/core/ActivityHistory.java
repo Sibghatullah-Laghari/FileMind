@@ -6,10 +6,10 @@ import java.util.*;
 
 /**
  * Tracks which files the user has opened via FileMind
- * Stored in the same SQLite DB as MetadataDB.
- * Retention: 3 days rolling window (auto-pruned on every write).
+ * Stored in the same SQLite DB as MetadataDB
+ * Retention: 3 days rolling window (auto-pruned on every write)
  *
- * Used for queries like:
+ * Used for queries like
  *   "files I worked on yesterday"
  *   "what was I doing 2 days ago"
  *  
