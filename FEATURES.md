@@ -71,7 +71,7 @@ Describe what you're looking for in plain English.
 | 4 | **OCR for Images** – Extract text from screenshots, photos, and scanned PDFs using Tesseract. | 🚧 In development | Q3 2026 |
 | 5 | **Semantic AI Search** – Local LLM integration (Ollama) for intent‑based search. | 📝 Planned | Q4 2026 |
 | 6 | **Tagging & Folders** – Organise files with custom tags and virtual folders. | 📝 Planned | Q1 2027 |
-| 7 | **Cross‑device Sync** – Optional encrypted sync across multiple machines. | 📝 Under consideration | TBD |
+| 7 | **Cross‑device Sync** – Optional encrypted sync across multiple machines. | 📝 Under consideration | TBD 
 
 ---
 ......
