@@ -12,7 +12,7 @@
 
 **FileMind** is a desktop search application that transforms your computer into a searchable personal knowledge library. Similar to *Google* for your own files, it lets you search PDFs, source code, documents, screenshots, and notes in milliseconds using a simple `Ctrl+Space` shortcut—**without relying on the cloud or consuming excessive system resources.**
 
-The application operates quietly from the system tray, continuously indexes files in the background, and searches the contents of documents instead of only their names. It is designed for developers, students, writers, and anyone who manages a large collection of digital files.
+The application operates quietly from the system tray, continuously indexes files in the background, and searches the contents of documents instead of only their names. It is designed for developers, students, writers, and anyone who manages a large collection of digital files..
 
 ---
 
