@@ -4,8 +4,8 @@
 
 - Java 21
 - Maven 3.9+
-- Windows/Linux
-
+- Windows/Linux.
+.
 ## Clone Repository.
 
 git clone ...
